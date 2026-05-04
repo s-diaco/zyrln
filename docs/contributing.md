@@ -65,7 +65,8 @@ Tests use only the standard library — no external test frameworks.
 ```bash
 make desktop          # build ./zephyr CLI binary
 make aar              # build Android .aar (requires gomobile + NDK)
-make android          # build debug APK (requires Android SDK)
+make android-debug    # build debug APK (no keystore needed)
+make android          # build signed release APK (requires keystore)
 ```
 
 First-time gomobile setup:
@@ -113,4 +114,4 @@ Never commit:
 - `certs/` — contains the local CA private key
 - Any file containing `AUTH_KEY` or relay keys
 
-These are covered by `.gitignore`. See [Key Generation in the README](../README.md#0-generate-your-auth-key) for how to generate a key.
+These are covered by `.gitignore`. See [Key Generation in the README](../README.md#prerequisites) for how to generate a key.

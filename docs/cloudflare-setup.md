@@ -23,7 +23,7 @@ device → local proxy → Google-fronted Apps Script → Cloudflare Worker → 
 In `relay/apps-script/Code.gs`, set:
 
 ```js
-const AUTH_KEY       = "your-long-random-secret";
+const AUTH_KEY       = "YOUR_KEY_FROM_PREREQUISITES";  // same key as before
 const EXIT_RELAY_URL = "https://your-worker.your-subdomain.workers.dev/relay";
 const EXIT_RELAY_KEY = "";   // leave empty, Cloudflare Workers don't use this
 ```

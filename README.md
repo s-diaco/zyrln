@@ -28,15 +28,14 @@ TLS connections go to Google's IP ranges. The encrypted `Host` header targets yo
 
 ## Quick Start
 
-### 0. Generate your auth key
+### Prerequisites
 
-You need a secret key that only your Apps Script and your client know. Generate one:
+Generate a secret auth key — you'll use it in every component:
 
 ```bash
 openssl rand -base64 32
+# example output: 4Xv8mK2...  ← save this
 ```
-
-Keep this — you'll use it in step 1 (Apps Script) and step 3 (config.env / Android app).
 
 ### 1. Deploy the Apps Script relay
 
@@ -64,7 +63,7 @@ Create `config.env` (gitignored):
 
 ```
 fronted-appscript-url = https://script.google.com/macros/s/YOUR_ID/exec
-auth-key              = your-long-random-secret
+auth-key              = YOUR_KEY_FROM_PREREQUISITES
 listen                = 127.0.0.1:8085
 ```
 
@@ -90,9 +89,9 @@ Set your browser's HTTP and HTTPS proxy to `127.0.0.1:8085`.
 
 ```bash
 make test
-# relay fetch ok
-# status: 204
 ```
+
+You should see `relay fetch ok` and `status: 204`. If not, check your Apps Script deployment and VPS relay are running.
 
 ## Android
 
@@ -107,21 +106,15 @@ See [docs/android-setup.md](docs/android-setup.md) for the full build and setup 
 ## Build Reference
 
 ```bash
-make desktop    # build desktop CLI binary
-make proxy      # start desktop proxy (reads config.env)
-make test       # smoke test the full relay chain
-make aar        # build Android .aar (requires gomobile)
-make android    # build Android APK (requires Android SDK)
+make desktop        # build desktop CLI binary
+make proxy          # start desktop proxy (reads config.env)
+make test           # smoke test the full relay chain
+make aar            # build Android .aar (requires gomobile)
+make android        # build signed release APK (requires keystore + Android SDK)
+make android-debug  # build debug APK (no keystore needed)
 ```
 
-First-time Android build setup:
-
-```bash
-go install golang.org/x/mobile/cmd/gomobile@latest
-gomobile init
-export ANDROID_HOME=~/Android/Sdk
-make android
-```
+See [docs/android-setup.md](docs/android-setup.md) for first-time Android build setup.
 
 ## Credits
 

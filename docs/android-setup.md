@@ -98,12 +98,6 @@ Open Chrome and visit any blocked site. HTTPS should work transparently.
 
 If you see SSL errors, the CA certificate is not trusted yet — repeat step 1.
 
-### 3. Test
-
-Open Chrome and visit any blocked site. HTTPS should work transparently.
-
-If you see SSL errors, the CA certificate is not trusted yet — repeat step 1.
-
 ## How the VPN Works
 
 The app creates a minimal Android VPN that sets a system HTTP proxy to `127.0.0.1:8085`. Most apps (Chrome, Firefox, system WebView) honor this setting. The local Go proxy:
