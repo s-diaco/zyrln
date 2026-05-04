@@ -71,10 +71,12 @@ Alternatively, use a Cloudflare Worker as the exit relay (see [docs/cloudflare-s
 Create `config.env` (gitignored):
 
 ```
-fronted-appscript-url = https://script.google.com/macros/s/YOUR_ID/exec
+fronted-appscript-url = https://script.google.com/macros/s/YOUR_ID/exec,https://script.google.com/macros/s/BACKUP_ID/exec
 auth-key              = YOUR_KEY_FROM_PREREQUISITES
 listen                = 127.0.0.1:8085
 ```
+
+`fronted-appscript-url` accepts a comma-separated list of Apps Script URLs. The proxy tries them in order and falls back to the next one automatically when one hits its quota or returns an error. Each URL should be a separately deployed Apps Script under a different Google account.
 
 Generate the local CA once:
 

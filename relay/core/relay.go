@@ -48,6 +48,7 @@ func NewHTTPClient(timeout time.Duration) *http.Client {
 }
 
 // RelayRequest sends method+targetURL through the domain-fronted Apps Script relay chain.
+// It is a convenience wrapper around RelayRequestMulti with a single URL.
 func RelayRequest(
 	client *http.Client,
 	appScriptURL, frontDomain, authKey,
@@ -56,7 +57,36 @@ func RelayRequest(
 	body []byte,
 	timeout time.Duration,
 ) (RelayResponse, error) {
+	return RelayRequestMulti(client, []string{appScriptURL}, frontDomain, authKey, method, targetURL, headers, body, timeout)
+}
+
+// RelayRequestMulti tries each Apps Script URL in order, moving to the next on quota
+// errors (HTML error pages) or network failures. Returns the first successful response.
+func RelayRequestMulti(
+	client *http.Client,
+	appScriptURLs []string,
+	frontDomain, authKey,
+	method, targetURL string,
+	headers map[string]string,
+	body []byte,
+	timeout time.Duration,
+) (RelayResponse, error) {
+	if len(appScriptURLs) == 0 {
+		return RelayResponse{}, fmt.Errorf("no Apps Script URLs configured")
+	}
 	payload := buildRelayPayload(authKey, method, targetURL, headers, body)
+	var lastErr error
+	for _, u := range appScriptURLs {
+		resp, err := tryOneURL(client, u, frontDomain, payload, timeout)
+		if err == nil {
+			return resp, nil
+		}
+		lastErr = err
+	}
+	return RelayResponse{}, lastErr
+}
+
+func tryOneURL(client *http.Client, appScriptURL, frontDomain, payload string, timeout time.Duration) (RelayResponse, error) {
 	raw, err := appsScriptRoundTrip(client, appScriptURL, frontDomain, payload, timeout)
 	if err != nil {
 		return RelayResponse{}, err
