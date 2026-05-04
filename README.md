@@ -16,11 +16,11 @@ TLS connections go to Google's IP ranges. The encrypted `Host` header targets yo
 
 ## Features
 
-- **Domain-fronting via Google**: all traffic exits from Google IP ranges — indistinguishable from normal Google traffic to DPI filters
+- **Domain-fronting via Google**: all traffic exits from Google IP ranges, indistinguishable from normal Google traffic to DPI filters
 - **Full HTTPS support**: local MITM proxy terminates TLS and re-encrypts, so blocked HTTPS sites work transparently
 - **Android VPN app**: one-tap connect routes all phone traffic through the relay without root or per-app config
-- **Self-hosted exit relay**: run your own VPS exit node (or use a Cloudflare Worker) — no third-party relay services
-- **Multi-URL quota failover**: configure multiple Apps Script deployments as a comma-separated list; the relay sticks to the first URL until it hits its 20k/day quota, then automatically switches to the next — no reconnection, no downtime. Wraps back to the first when the last one exhausts (quota resets by then)
+- **Self-hosted exit relay**: run your own VPS exit node (or use a Cloudflare Worker) with no third-party relay services
+- **Multi-URL quota failover**: configure multiple Apps Script deployments as a comma-separated list; the relay sticks to the first URL until it hits its 20k/day quota, then automatically switches to the next with no reconnection or downtime. Wraps back to the first when the last one exhausts (quota resets by then)
 - **Multiple saved configs**: store and switch between relay configs on Android with a single tap
 - **Desktop + Android**: the same relay core powers both the desktop CLI proxy and the Android app via gomobile
 
@@ -34,13 +34,13 @@ TLS connections go to Google's IP ranges. The encrypted `Host` header targets yo
 | Apps Script relay | `relay/apps-script/Code.gs` | Google-side relay (the front door) |
 | VPS relay | `relay/vps/main.go` | Exit relay running on your server |
 | Cloudflare Worker | `relay/cloudflare/worker.js` | Optional alternative exit relay |
-| Android app | `android/` | Android VPN app — routes phone traffic through the relay |
+| Android app | `android/` | Android VPN app that routes phone traffic through the relay |
 
 ## Quick Start
 
 ### Prerequisites
 
-Generate a secret auth key — you'll use it in every component:
+Generate a secret auth key. You will use it in every component:
 
 ```bash
 openssl rand -base64 32
@@ -64,7 +64,7 @@ const EXIT_RELAY_KEY = "";   // optional extra key for the VPS relay
 
 ### 2. Deploy the VPS relay
 
-See [docs/vps-setup.md](docs/vps-setup.md) — covers build, systemd service, firewall, and testing.
+See [docs/vps-setup.md](docs/vps-setup.md) for build, systemd service, firewall, and testing.
 Alternatively, use a Cloudflare Worker as the exit relay (see [docs/cloudflare-setup.md](docs/cloudflare-setup.md)).
 
 ### 3. Configure and run the desktop proxy
@@ -77,7 +77,7 @@ auth-key              = YOUR_KEY_FROM_PREREQUISITES
 listen                = 127.0.0.1:8085
 ```
 
-`fronted-appscript-url` accepts a comma-separated list of Apps Script URLs. The proxy sticks to the first URL until it hits its daily quota, then automatically switches to the next one and sticks there. When the last URL is exhausted it wraps back to the first (which has reset by then). Each URL should be a separately deployed Apps Script — ideally under a different Google account to get a separate quota.
+`fronted-appscript-url` accepts a comma-separated list of Apps Script URLs. The proxy sticks to the first URL until it hits its daily quota, then automatically switches to the next one and sticks there. When the last URL is exhausted it wraps back to the first (which has reset by then). Each URL should be a separately deployed Apps Script, ideally under a different Google account to get a separate quota.
 
 Generate the local CA once:
 
@@ -110,8 +110,8 @@ You should see `relay fetch ok` and `status: 204`. If not, check your Apps Scrip
 See [docs/android-setup.md](docs/android-setup.md) for the full build and setup guide.
 
 **Quick summary:**
-1. `make keystore && make android` — build signed APK
-2. `make install` — push to connected phone via adb
+1. `make keystore && make android`: build signed APK
+2. `make install`: push to connected phone via adb
 3. On desktop: `./zyrln -export-config` → copy the JSON
 4. In the app: tap **Import Config from Clipboard** → tap the config to connect
 
@@ -130,12 +130,12 @@ See [docs/android-setup.md](docs/android-setup.md) for first-time Android build 
 
 ## Limitations
 
-- **Browser-based only** — this is an HTTP proxy, not a full VPN. Only browser traffic and apps that respect the system proxy are relayed. Apps like Instagram, WhatsApp, and Telegram bypass it entirely.
-- **Apps Script quota** — each Google account gets 20,000 relay requests/day. Heavy sites like YouTube can exhaust this quickly. Each user should deploy their own Apps Script.
+- **Browser-based only**: this is an HTTP proxy, not a full VPN. Only browser traffic and apps that respect the system proxy are relayed. Apps like Instagram, WhatsApp, and Telegram bypass it entirely.
+- **Apps Script quota**: each Google account gets 20,000 relay requests/day. Heavy sites like YouTube can exhaust this quickly. Each user should deploy their own Apps Script.
 
 ## Credits
 
-The domain-fronting technique used here — routing traffic through Google Apps Script with a Cloudflare Worker as the exit relay — was pioneered by [denuitt1/mhr-cfw](https://github.com/denuitt1/mhr-cfw). This project takes that core idea and extends it with a self-hosted VPS exit relay, a full Go rewrite, an Android VPN app, and HTTPS MITM proxy support.
+The domain-fronting technique used here, routing traffic through Google Apps Script with a Cloudflare Worker as the exit relay, was pioneered by [denuitt1/mhr-cfw](https://github.com/denuitt1/mhr-cfw). This project takes that core idea and extends it with a self-hosted VPS exit relay, a full Go rewrite, an Android VPN app, and HTTPS MITM proxy support.
 
 ## Security Notes
 

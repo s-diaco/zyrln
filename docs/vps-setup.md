@@ -1,6 +1,6 @@
 # VPS Relay Setup
 
-The VPS relay is the exit node — it receives requests from Apps Script and fetches the real target URL.
+The VPS relay is the exit node. It receives requests from Apps Script and fetches the real target URL.
 
 ## Build and Deploy
 
@@ -44,7 +44,7 @@ ZYRLN_RELAY_LISTEN=0.0.0.0:8787
 ZYRLN_RELAY_KEY=your-optional-relay-key
 ```
 
-If you set `ZYRLN_RELAY_KEY`, you must set the same value in Apps Script's `EXIT_RELAY_KEY` constant — otherwise Apps Script won't be able to reach the VPS and all relay requests will fail with 401.
+If you set `ZYRLN_RELAY_KEY`, you must set the same value in Apps Script's `EXIT_RELAY_KEY` constant. Otherwise Apps Script won't be able to reach the VPS and all relay requests will fail with 401.
 
 Enable and start:
 

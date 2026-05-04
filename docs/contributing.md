@@ -40,9 +40,9 @@ zyrln/
 
 **`relay/core`** is the heart of the project. Both the desktop binary and the Android app import it.
 
-- `relay.go` — builds and sends a relay request through domain-fronting. The domain-fronting trick: `req.URL.Host` is set to the front domain (e.g. `www.google.com`) so TLS connects to Google's IPs, while `req.Host` carries the real Apps Script hostname inside the encrypted TLS tunnel.
-- `proxy.go` — HTTP proxy that intercepts browser traffic. HTTP requests are relayed directly; HTTPS connections use `CONNECT` tunneling with local TLS termination (MITM).
-- `cert.go` — generates a local CA and signs per-hostname leaf certificates on demand, cached in memory.
+- `relay.go`: builds and sends a relay request through domain-fronting. The domain-fronting trick is that `req.URL.Host` is set to the front domain (e.g. `www.google.com`) so TLS connects to Google's IPs, while `req.Host` carries the real Apps Script hostname inside the encrypted TLS tunnel.
+- `proxy.go`: HTTP proxy that intercepts browser traffic. HTTP requests are relayed directly; HTTPS connections use `CONNECT` tunneling with local TLS termination (MITM).
+- `cert.go`: generates a local CA and signs per-hostname leaf certificates on demand, cached in memory.
 
 **`platforms/mobile`** exposes a flat string-based API (`Start`, `Stop`, etc.) because gomobile only supports primitive types at the boundary. All errors are returned as strings, not Go `error` values.
 
@@ -58,7 +58,7 @@ Or everything at once:
 go test ./...
 ```
 
-Tests use only the standard library — no external test frameworks.
+Tests use only the standard library, no external test frameworks.
 
 ## Building
 
@@ -110,8 +110,8 @@ type workerResponse struct {
 ## Secrets and Gitignore
 
 Never commit:
-- `config.env` — contains your Apps Script URL and auth key
-- `certs/` — contains the local CA private key
+- `config.env`: contains your Apps Script URL and auth key
+- `certs/`: contains the local CA private key
 - Any file containing `AUTH_KEY` or relay keys
 
 These are covered by `.gitignore`. See [Key Generation in the README](../README.md#prerequisites) for how to generate a key.

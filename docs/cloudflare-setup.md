@@ -13,7 +13,7 @@ device → local proxy → Google-fronted Apps Script → Cloudflare Worker → 
 1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → **Create application** → **Worker**
 2. Replace the default code with the contents of `relay/cloudflare/worker.js`
 3. Click **Deploy**
-4. Copy the Worker URL — it looks like:
+4. Copy the Worker URL, which looks like:
    ```
    https://your-worker.your-subdomain.workers.dev
    ```
@@ -42,6 +42,6 @@ Then redeploy the Apps Script web app (Deploy → Manage deployments → create 
 
 ## Notes
 
-- The free tier has a 10ms CPU time limit per request and 100,000 requests/day — enough for light browsing, not heavy use
-- Cloudflare can see the relay traffic metadata (destination URLs) — use the VPS relay if that's a concern
+- The free tier has a 10ms CPU time limit per request and 100,000 requests/day, enough for light browsing but not heavy use
+- Cloudflare can see the relay traffic metadata (destination URLs). Use the VPS relay if that's a concern
 - The Worker code is in `relay/cloudflare/worker.js` and requires no dependencies

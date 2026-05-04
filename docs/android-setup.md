@@ -90,7 +90,7 @@ You can save multiple configs and switch between them.
 {"url":"https://script.google.com/.../exec1,https://script.google.com/.../exec2","key":"your-auth-key"}
 ```
 
-The app sticks to the first URL until it hits its quota, then automatically switches to the next one — no reconnection needed. When the last URL exhausts, it wraps back to the first (reset by then). Each URL should be a separate Apps Script deployment under a different Google account.
+The app sticks to the first URL until it hits its quota, then automatically switches to the next one with no reconnection needed. When the last URL exhausts, it wraps back to the first (reset by then). Each URL should be a separate Apps Script deployment under a different Google account.
 
 ### 3. Connect
 
@@ -103,7 +103,7 @@ The status dot turns green and the relay is active. Tap the config again to disc
 
 Open Chrome and visit any blocked site. HTTPS should work transparently.
 
-If you see SSL errors, the CA certificate is not trusted yet — repeat step 1.
+If you see SSL errors, the CA certificate is not trusted yet. Repeat step 1.
 
 ## How the VPN Works
 
