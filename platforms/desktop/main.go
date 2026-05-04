@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"zephyr/relay/core"
+	"zyrln/relay/core"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -111,7 +111,7 @@ func (p proxyConfig) dialContext(timeout time.Duration) func(context.Context, st
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, `Zephyr — domain-fronting reachability tool
+		fmt.Fprintf(os.Stderr, `Zyrln — domain-fronting reachability tool
 
 Modes:
   (default)          run reachability probes and print a table
@@ -145,8 +145,8 @@ Flags:
 	listenFlag := flag.String("listen", "127.0.0.1:8085", "listen address for -serve-proxy")
 	exportConfigFlag := flag.Bool("export-config", false, "print config as JSON for importing into the Android app")
 	initCAFlag := flag.Bool("init-ca", false, "generate a local CA certificate for HTTPS proxy interception")
-	caCertFlag := flag.String("ca-cert", "certs/zephyr-ca.pem", "local CA certificate path for HTTPS proxy interception")
-	caKeyFlag := flag.String("ca-key", "certs/zephyr-ca-key.pem", "local CA private key path for HTTPS proxy interception")
+	caCertFlag := flag.String("ca-cert", "certs/zyrln-ca.pem", "local CA certificate path for HTTPS proxy interception")
+	caKeyFlag := flag.String("ca-key", "certs/zyrln-ca-key.pem", "local CA private key path for HTTPS proxy interception")
 	frontRedirectsFlag := flag.Bool("front-redirects", false, "when a fronted probe gets a redirect, retry the Location using the front domain and encrypted Host override")
 	followRedirectsFlag := flag.Bool("follow-redirects", true, "follow HTTP redirects")
 	flag.Parse()
@@ -309,7 +309,7 @@ Flags:
 }
 
 func relayFetch(client *http.Client, appScriptURL, frontDomain, authKey, targetURL, bodyOut string, timeout time.Duration) error {
-	resp, err := core.RelayRequest(client, appScriptURL, frontDomain, authKey, "GET", targetURL, map[string]string{"User-Agent": "zephyr/0.1"}, nil, timeout)
+	resp, err := core.RelayRequest(client, appScriptURL, frontDomain, authKey, "GET", targetURL, map[string]string{"User-Agent": "zyrln/0.1"}, nil, timeout)
 	if err != nil {
 		return err
 	}
@@ -356,7 +356,7 @@ func defaultProbes() []probe {
 func appScriptProbes(rawURL string) []probe {
 	return []probe{
 		{ID: "appscript-deployed-get", Name: "Apps Script deployed GET", Category: "serverless-live", Method: http.MethodGet, URL: addQuery(rawURL, "mode=probe&size=small"), Expectation: "deployed Apps Script web app accepts small GET messages"},
-		{ID: "appscript-deployed-post", Name: "Apps Script deployed POST", Category: "serverless-live", Method: http.MethodPost, URL: rawURL, Headers: map[string]string{"Content-Type": "application/json"}, Body: `{"mode":"probe","size":"small","message":"zephyr probe"}`, Expectation: "deployed Apps Script web app accepts small POST messages"},
+		{ID: "appscript-deployed-post", Name: "Apps Script deployed POST", Category: "serverless-live", Method: http.MethodPost, URL: rawURL, Headers: map[string]string{"Content-Type": "application/json"}, Body: `{"mode":"probe","size":"small","message":"zyrln probe"}`, Expectation: "deployed Apps Script web app accepts small POST messages"},
 	}
 }
 
@@ -380,13 +380,13 @@ func frontedAppScriptProbes(rawURL, frontDomain, authKey, targetURL string) ([]p
 
 	probes := []probe{
 		{ID: "fronted-appscript-get", Name: "Fronted Apps Script GET", Category: "domain-front", Method: http.MethodGet, URL: addQuery(frontedBase.String(), "mode=probe&size=small"), Host: parsed.Host, FrontDomain: frontDomain, Expectation: "domain-fronted GET"},
-		{ID: "fronted-appscript-post", Name: "Fronted Apps Script POST", Category: "domain-front", Method: http.MethodPost, URL: frontedBase.String(), Host: parsed.Host, FrontDomain: frontDomain, Headers: map[string]string{"Content-Type": "application/json"}, Body: `{"mode":"probe","size":"small","message":"zephyr domain-front probe"}`, Expectation: "domain-fronted POST"},
+		{ID: "fronted-appscript-post", Name: "Fronted Apps Script POST", Category: "domain-front", Method: http.MethodPost, URL: frontedBase.String(), Host: parsed.Host, FrontDomain: frontDomain, Headers: map[string]string{"Content-Type": "application/json"}, Body: `{"mode":"probe","size":"small","message":"zyrln domain-front probe"}`, Expectation: "domain-fronted POST"},
 	}
 
 	if strings.TrimSpace(authKey) != "" {
 		payload := map[string]any{
 			"k": authKey, "m": "GET", "u": targetURL,
-			"h": map[string]string{"User-Agent": "zephyr/0.1"},
+			"h": map[string]string{"User-Agent": "zyrln/0.1"},
 			"ct": nil, "r": true,
 		}
 		encoded, _ := json.Marshal(payload)

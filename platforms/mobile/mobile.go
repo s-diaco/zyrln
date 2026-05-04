@@ -2,7 +2,7 @@
 package mobile
 
 import (
-	"zephyr/relay/core"
+	"zyrln/relay/core"
 	"fmt"
 	"net/http"
 	"sync"

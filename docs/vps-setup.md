@@ -7,29 +7,29 @@ The VPS relay is the exit node — it receives requests from Apps Script and fet
 On your local machine, cross-compile for Linux:
 
 ```bash
-GOOS=linux GOARCH=amd64 go build -o zephyr-relay ./relay/vps/main.go
+GOOS=linux GOARCH=amd64 go build -o zyrln-relay ./relay/vps/main.go
 ```
 
 Copy to the server:
 
 ```bash
-scp zephyr-relay root@YOUR_VPS:/usr/local/bin/
+scp zyrln-relay root@YOUR_VPS:/usr/local/bin/
 ```
 
 ## Run as a systemd Service
 
-Create `/etc/systemd/system/zephyr-relay.service`:
+Create `/etc/systemd/system/zyrln-relay.service`:
 
 ```ini
 [Unit]
-Description=Zephyr Exit Relay
+Description=Zyrln Exit Relay
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-EnvironmentFile=/etc/zephyr-relay.env
-ExecStart=/usr/local/bin/zephyr-relay
+EnvironmentFile=/etc/zyrln-relay.env
+ExecStart=/usr/local/bin/zyrln-relay
 Restart=always
 RestartSec=3
 
@@ -37,20 +37,20 @@ RestartSec=3
 WantedBy=multi-user.target
 ```
 
-Create `/etc/zephyr-relay.env`:
+Create `/etc/zyrln-relay.env`:
 
 ```
-ZEPHYR_RELAY_LISTEN=0.0.0.0:8787
-ZEPHYR_RELAY_KEY=your-optional-relay-key
+ZYRLN_RELAY_LISTEN=0.0.0.0:8787
+ZYRLN_RELAY_KEY=your-optional-relay-key
 ```
 
-If you set `ZEPHYR_RELAY_KEY`, you must set the same value in Apps Script's `EXIT_RELAY_KEY` constant — otherwise Apps Script won't be able to reach the VPS and all relay requests will fail with 401.
+If you set `ZYRLN_RELAY_KEY`, you must set the same value in Apps Script's `EXIT_RELAY_KEY` constant — otherwise Apps Script won't be able to reach the VPS and all relay requests will fail with 401.
 
 Enable and start:
 
 ```bash
 systemctl daemon-reload
-systemctl enable --now zephyr-relay
+systemctl enable --now zyrln-relay
 ```
 
 ## Open the Firewall
@@ -66,7 +66,7 @@ ufw allow 8787/tcp
 ## Test
 
 ```bash
-# If ZEPHYR_RELAY_KEY is set, include the header; omit it if key is empty.
+# If ZYRLN_RELAY_KEY is set, include the header; omit it if key is empty.
 curl -X POST http://YOUR_VPS:8787/relay \
   -H "Content-Type: application/json" \
   -H "X-Relay-Key: your-optional-relay-key" \

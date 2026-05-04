@@ -1,5 +1,5 @@
 // Replace this with your Worker hostname only, without "https://".
-// Example: "zephyr.your-subdomain.workers.dev"
+// Example: "zyrln.your-subdomain.workers.dev"
 const WORKER_HOST = "CHANGE_ME_WORKER_HOST";
 
 export default {

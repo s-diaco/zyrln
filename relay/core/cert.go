@@ -40,8 +40,8 @@ func GenerateCA(certPath, keyPath string) error {
 	template := &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
-			CommonName:   "Zephyr Local CA",
-			Organization: []string{"Zephyr"},
+			CommonName:   "Zyrln Local CA",
+			Organization: []string{"Zyrln"},
 		},
 		NotBefore:             now.Add(-time.Hour),
 		NotAfter:              now.AddDate(3, 0, 0),

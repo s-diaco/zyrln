@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Zephyr"
+rootProject.name = "Zyrln"
 include ':app'

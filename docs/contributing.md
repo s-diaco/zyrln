@@ -5,7 +5,7 @@ For a high-level overview of what each component does, see the [Components table
 ## Project Structure
 
 ```
-zephyr/
+zyrln/
 ├── platforms/
 │   ├── desktop/        # Desktop CLI binary (main package)
 │   │   ├── main.go     # CLI flags, probe runner, relay-fetch, proxy launcher
@@ -27,7 +27,7 @@ zephyr/
 │       └── worker.js   # Alternative exit relay as a Cloudflare Worker
 │
 ├── android/            # Android Studio project
-│   └── app/src/main/java/com/zephyr/relay/
+│   └── app/src/main/java/com/zyrln/relay/
 │       ├── MainActivity.kt      # UI: connect/disconnect, CA cert install flow
 │       └── RelayVpnService.kt   # VpnService: starts Go proxy, sets system proxy
 │
@@ -63,7 +63,7 @@ Tests use only the standard library — no external test frameworks.
 ## Building
 
 ```bash
-make desktop          # build ./zephyr CLI binary
+make desktop          # build ./zyrln CLI binary
 make aar              # build Android .aar (requires gomobile + NDK)
 make android-debug    # build debug APK (no keystore needed)
 make android          # build signed release APK (requires keystore)

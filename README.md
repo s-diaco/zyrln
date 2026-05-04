@@ -1,4 +1,4 @@
-# Zephyr
+# Zyrln
 
 A domain-fronting relay that routes traffic through Google infrastructure to bypass DPI-based censorship.
 
@@ -79,10 +79,10 @@ listen                = 127.0.0.1:8085
 Generate the local CA once:
 
 ```bash
-make desktop && ./zephyr -init-ca
+make desktop && ./zyrln -init-ca
 ```
 
-Install `certs/zephyr-ca.pem` as a trusted CA in your browser:
+Install `certs/zyrln-ca.pem` as a trusted CA in your browser:
 - **Chrome/Edge**: Settings → Privacy → Security → Manage certificates → Authorities → Import
 - **Firefox**: Settings → Privacy & Security → View Certificates → Authorities → Import
 
@@ -109,7 +109,7 @@ See [docs/android-setup.md](docs/android-setup.md) for the full build and setup 
 **Quick summary:**
 1. `make keystore && make android` — build signed APK
 2. `make install` — push to connected phone via adb
-3. On desktop: `./zephyr -export-config` → copy the JSON
+3. On desktop: `./zyrln -export-config` → copy the JSON
 4. In the app: tap **Import Config from Clipboard** → tap the config to connect
 
 ## Build Reference
@@ -134,5 +134,5 @@ The domain-fronting technique used here — routing traffic through Google Apps 
 - Each user should deploy their own Apps Script and generate their own auth key
 - Never commit `config.env`, `certs/`, or any auth keys
 - Rotate your auth key if it appeared in logs or chat
-- The local CA private key (`certs/zephyr-ca-key.pem`) must not be shared
+- The local CA private key (`certs/zyrln-ca-key.pem`) must not be shared
 - Google and your VPS provider can see metadata (timing, volume) even though they cannot read content

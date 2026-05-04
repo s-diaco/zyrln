@@ -5,4 +5,5 @@
     <color name="subtitle">#757575</color>
     <color name="dot_active">#43A047</color>
     <color name="dot_inactive">#BDBDBD</color>
+    <color name="ic_launcher_background">#0D1B3E</color>
 </resources>

@@ -35,8 +35,8 @@ type relayResponse struct {
 }
 
 func main() {
-	listen := flag.String("listen", envDefault("ZEPHYR_RELAY_LISTEN", "127.0.0.1:8787"), "listen address")
-	key := flag.String("key", os.Getenv("ZEPHYR_RELAY_KEY"), "optional relay key required in X-Relay-Key")
+	listen := flag.String("listen", envDefault("ZYRLN_RELAY_LISTEN", "127.0.0.1:8787"), "listen address")
+	key := flag.String("key", os.Getenv("ZYRLN_RELAY_KEY"), "optional relay key required in X-Relay-Key")
 	timeout := flag.Duration("timeout", 45*time.Second, "target request timeout")
 	flag.Parse()
 
@@ -68,9 +68,9 @@ func main() {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	log.Printf("zephyr relay listening on http://%s", *listen)
+	log.Printf("zyrln relay listening on http://%s", *listen)
 	if *key == "" {
-		log.Printf("warning: ZEPHYR_RELAY_KEY is empty; /relay is not protected")
+		log.Printf("warning: ZYRLN_RELAY_KEY is empty; /relay is not protected")
 	}
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)

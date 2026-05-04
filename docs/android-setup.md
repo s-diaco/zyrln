@@ -35,7 +35,7 @@ Build everything:
 ```bash
 make keystore   # generate signing keystore (run once)
 make android    # build signed release APK
-# APK → android/app/build/outputs/apk/release/zephyr-1.0.apk
+# APK → android/app/build/outputs/apk/release/zyrln-1.0.apk
 ```
 
 Or a debug build (no keystore needed):
@@ -60,10 +60,10 @@ Or copy the APK to your phone and open it (enable "Install unknown apps" for you
 The app intercepts HTTPS traffic locally (MITM) so it can relay it. Your browser needs to trust the local CA.
 
 1. Open the app and tap **Install CA Certificate**
-2. The cert is saved to `Downloads/zephyr-ca.pem`
+2. The cert is saved to `Downloads/zyrln-ca.pem`
 3. Tap **Open Settings** in the dialog
 4. Go to **Biometrics & security → Other security settings → Install from device storage**
-5. Browse to Downloads, select `zephyr-ca.pem`
+5. Browse to Downloads, select `zyrln-ca.pem`
 6. Choose **CA certificate** when prompted
 
 This is a one-time step.
@@ -73,7 +73,7 @@ This is a one-time step.
 On your desktop, make sure `config.env` is set up (see [README](../README.md#3-configure-and-run-the-desktop-proxy)), then export your config as JSON:
 
 ```bash
-./zephyr -export-config
+./zyrln -export-config
 # prints: {"url":"https://script.google.com/...","key":"your-auth-key"}
 ```
 

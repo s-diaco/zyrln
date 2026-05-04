@@ -1,4 +1,4 @@
-package com.zephyr.relay
+package com.zyrln.relay
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -20,12 +20,12 @@ class RelayVpnService : VpnService() {
 
     companion object {
         const val TAG = "RelayVpnService"
-        const val ACTION_START = "com.zephyr.relay.START"
-        const val ACTION_STOP = "com.zephyr.relay.STOP"
+        const val ACTION_START = "com.zyrln.relay.START"
+        const val ACTION_STOP = "com.zyrln.relay.STOP"
         const val EXTRA_URL = "url"
         const val EXTRA_KEY = "key"
         const val NOTIF_ID = 1
-        const val CHANNEL_ID = "zephyr_vpn"
+        const val CHANNEL_ID = "zyrln_vpn"
         private const val PROXY_PORT = 8085
     }
 
@@ -72,14 +72,14 @@ class RelayVpnService : VpnService() {
 
         // Establish a minimal VPN connection that sets our proxy for all apps.
         val builder = Builder()
-            .setSession("Zephyr")
+            .setSession("Zyrln")
             .addAddress("10.99.0.2", 32)
             .setHttpProxy(ProxyInfo.buildDirectProxy("127.0.0.1", PROXY_PORT))
 
         try {
             vpnInterface = builder.establish()
             Log.i(TAG, "VPN interface established")
-            sendBroadcast(Intent("com.zephyr.relay.STARTED"))
+            sendBroadcast(Intent("com.zyrln.relay.STARTED"))
         } catch (e: Exception) {
             Log.e(TAG, "VPN establish failed: ${e.message}")
             Mobile.stop()
@@ -93,14 +93,14 @@ class RelayVpnService : VpnService() {
         vpnInterface?.close()
         vpnInterface = null
         stopForeground(STOP_FOREGROUND_REMOVE)
-        sendBroadcast(Intent("com.zephyr.relay.STOPPED"))
+        sendBroadcast(Intent("com.zyrln.relay.STOPPED"))
         stopSelf()
     }
 
     override fun onDestroy() {
         Mobile.stop()
         vpnInterface?.close()
-        sendBroadcast(Intent("com.zephyr.relay.STOPPED"))
+        sendBroadcast(Intent("com.zyrln.relay.STOPPED"))
         super.onDestroy()
     }
 

@@ -1,4 +1,4 @@
-package com.zephyr.relay
+package com.zyrln.relay
 
 import android.app.AlertDialog
 import android.content.BroadcastReceiver
@@ -25,7 +25,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
-import com.zephyr.relay.databinding.ActivityMainBinding
+import com.zyrln.relay.databinding.ActivityMainBinding
 import mobile.Mobile
 import java.io.File
 import java.net.URI
@@ -86,8 +86,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        registerReceiver(startedReceiver, IntentFilter("com.zephyr.relay.STARTED"), RECEIVER_NOT_EXPORTED)
-        registerReceiver(stopReceiver, IntentFilter("com.zephyr.relay.STOPPED"), RECEIVER_NOT_EXPORTED)
+        registerReceiver(startedReceiver, IntentFilter("com.zyrln.relay.STARTED"), RECEIVER_NOT_EXPORTED)
+        registerReceiver(stopReceiver, IntentFilter("com.zyrln.relay.STOPPED"), RECEIVER_NOT_EXPORTED)
         if (Mobile.isRunning() && activeUrl == null) {
             activeUrl = prefs.getString("url", null)
             activeKey = prefs.getString("key", null)
@@ -263,7 +263,7 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Already in list", Toast.LENGTH_SHORT).show()
             }
         } catch (e: JSONException) {
-            Toast.makeText(this, "Invalid config — copy the JSON from ./zephyr -export-config", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Invalid config — copy the JSON from ./zyrln -export-config", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -325,7 +325,7 @@ class MainActivity : AppCompatActivity() {
         try {
             val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             downloads.mkdirs()
-            certFile.copyTo(File(downloads, "zephyr-ca.pem"), overwrite = true)
+            certFile.copyTo(File(downloads, "zyrln-ca.pem"), overwrite = true)
         } catch (e: Exception) {
             Log.w("MainActivity", "copy to Downloads failed: ${e.message}")
         }
@@ -333,14 +333,14 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("Install CA Certificate")
             .setMessage(
-                "The certificate has been saved to:\n\nDownloads/zephyr-ca.pem\n\n" +
+                "The certificate has been saved to:\n\nDownloads/zyrln-ca.pem\n\n" +
                 "Steps:\n" +
                 "1. Tap \"Open Settings\" below\n" +
                 "2. Go to Biometrics & security\n" +
                 "3. Tap \"Other security settings\"\n" +
                 "4. Tap \"Install from device storage\"\n" +
                 "5. Browse to Downloads folder\n" +
-                "6. Select zephyr-ca.pem\n" +
+                "6. Select zyrln-ca.pem\n" +
                 "7. Choose \"CA certificate\"\n\n" +
                 "Do this once — HTTPS sites will then work through the relay."
             )

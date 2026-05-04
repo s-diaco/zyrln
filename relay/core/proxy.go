@@ -203,7 +203,7 @@ func forwardHeaders(h http.Header) map[string]string {
 		}
 	}
 	if _, ok := out["User-Agent"]; !ok {
-		out["User-Agent"] = "zephyr/0.1"
+		out["User-Agent"] = "zyrln/0.1"
 	}
 	return out
 }

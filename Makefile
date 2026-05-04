@@ -3,8 +3,8 @@ ANDROID_HOME ?= $(HOME)/Android/Sdk
 GOTOOLCHAIN  ?= go1.25.0
 GOFLAGS      ?= -buildvcs=false
 AAR_OUT       = android/app/libs/mobile.aar
-APK_RELEASE   = android/app/build/outputs/apk/release/zephyr-1.0.apk
-APK_DEBUG     = android/app/build/outputs/apk/debug/zephyr-1.0.apk
+APK_RELEASE   = android/app/build/outputs/apk/release/zyrln-1.0.apk
+APK_DEBUG     = android/app/build/outputs/apk/debug/zyrln-1.0.apk
 
 export ANDROID_HOME
 export GOTOOLCHAIN
@@ -16,7 +16,7 @@ all: desktop
 
 ## Build the desktop CLI binary.
 desktop:
-	GOCACHE=$(GOCACHE) go build -o zephyr ./platforms/desktop/
+	GOCACHE=$(GOCACHE) go build -o zyrln ./platforms/desktop/
 
 ## Start the desktop relay proxy (reads config.env).
 proxy:
@@ -35,25 +35,25 @@ aar:
 		-target android \
 		-androidapi 21 \
 		-o $(AAR_OUT) \
-		zephyr/platforms/mobile
+		zyrln/platforms/mobile
 	@echo "AAR → $(AAR_OUT)"
 
 ## Generate a release signing keystore (run once before `make android`).
 ## Requires: keytool (comes with the JDK)
 keystore:
 	@if [ -f android/keystore.properties ]; then \
-		echo "Keystore already exists. Delete android/zephyr.jks and android/keystore.properties to regenerate."; \
+		echo "Keystore already exists. Delete android/zyrln.jks and android/keystore.properties to regenerate."; \
 		exit 1; \
 	fi
 	keytool -genkeypair -v \
-		-keystore android/zephyr.jks \
-		-alias zephyr \
+		-keystore android/zyrln.jks \
+		-alias zyrln \
 		-keyalg RSA -keysize 2048 -validity 10000 \
-		-storepass zephyr123 -keypass zephyr123 \
-		-dname "CN=Zephyr, O=Zephyr, C=US"
-	@printf 'storeFile=../zephyr.jks\nstorePassword=zephyr123\nkeyAlias=zephyr\nkeyPassword=zephyr123\n' \
+		-storepass zyrln123 -keypass zyrln123 \
+		-dname "CN=Zyrln, O=Zyrln, C=US"
+	@printf 'storeFile=../zyrln.jks\nstorePassword=zyrln123\nkeyAlias=zyrln\nkeyPassword=zyrln123\n' \
 		> android/keystore.properties
-	@echo "Keystore → android/zephyr.jks"
+	@echo "Keystore → android/zyrln.jks"
 	@echo "Properties → android/keystore.properties"
 
 ## Build the release APK (requires aar + keystore first).
@@ -75,5 +75,5 @@ install-debug:
 	adb install -r $(APK_DEBUG)
 
 clean:
-	rm -f zephyr $(AAR_OUT)
+	rm -f zyrln $(AAR_OUT)
 	cd android && ./gradlew clean 2>/dev/null || true

@@ -1,4 +1,4 @@
-module zephyr
+module zyrln
 
 go 1.25.0
 
