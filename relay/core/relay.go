@@ -64,6 +64,9 @@ func RelayRequest(
 
 	var workerResp workerResponse
 	if err := json.Unmarshal(raw, &workerResp); err != nil {
+		if strings.HasPrefix(strings.TrimSpace(string(raw)), "<") {
+			return RelayResponse{}, fmt.Errorf("Apps Script returned an error page — quota may be exceeded or deployment is misconfigured")
+		}
 		return RelayResponse{}, fmt.Errorf("invalid relay JSON: %w; body=%s", err, previewBytes(raw, 256))
 	}
 	if workerResp.Error != "" {
