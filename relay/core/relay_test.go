@@ -266,3 +266,98 @@ func TestRelayRequest_ServerError(t *testing.T) {
 		t.Error("expected error for 500 response")
 	}
 }
+
+// --- RelayRequestMulti ---
+
+func TestRelayRequestMulti_FirstURLSucceeds(t *testing.T) {
+	good := mockAppsScriptServer(t, 200, "ok")
+	defer good.Close()
+
+	resp, err := RelayRequestMulti(
+		good.Client(), []string{good.URL}, srvHost(good), "k",
+		"GET", "https://example.com", nil, nil, 5*time.Second,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(resp.Body) != "ok" {
+		t.Errorf("body = %q, want ok", resp.Body)
+	}
+}
+
+func TestRelayRequestMulti_FallsBackOnError(t *testing.T) {
+	bad := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(500)
+		fmt.Fprint(w, "server error")
+	}))
+	defer bad.Close()
+
+	good := mockAppsScriptServer(t, 200, "fallback ok")
+	defer good.Close()
+
+	// Use good.Client() which trusts both test TLS certs (same pool).
+	client := good.Client()
+	resp, err := RelayRequestMulti(
+		client, []string{bad.URL, good.URL}, srvHost(good), "k",
+		"GET", "https://example.com", nil, nil, 5*time.Second,
+	)
+	if err != nil {
+		t.Fatalf("expected fallback to succeed, got error: %v", err)
+	}
+	if string(resp.Body) != "fallback ok" {
+		t.Errorf("body = %q, want 'fallback ok'", resp.Body)
+	}
+}
+
+func TestRelayRequestMulti_FallsBackOnQuotaHTMLPage(t *testing.T) {
+	quota := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, "<html><body>Service Unavailable</body></html>")
+	}))
+	defer quota.Close()
+
+	good := mockAppsScriptServer(t, 204, "")
+	defer good.Close()
+
+	client := good.Client()
+	resp, err := RelayRequestMulti(
+		client, []string{quota.URL, good.URL}, srvHost(good), "k",
+		"GET", "https://example.com", nil, nil, 5*time.Second,
+	)
+	if err != nil {
+		t.Fatalf("expected fallback after quota HTML, got error: %v", err)
+	}
+	if resp.Status != 204 {
+		t.Errorf("status = %d, want 204", resp.Status)
+	}
+}
+
+func TestRelayRequestMulti_AllFail(t *testing.T) {
+	bad1 := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(500)
+	}))
+	defer bad1.Close()
+	bad2 := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(500)
+	}))
+	defer bad2.Close()
+
+	client := bad1.Client()
+	_, err := RelayRequestMulti(
+		client, []string{bad1.URL, bad2.URL}, srvHost(bad1), "k",
+		"GET", "https://example.com", nil, nil, 5*time.Second,
+	)
+	if err == nil {
+		t.Error("expected error when all URLs fail")
+	}
+}
+
+func TestRelayRequestMulti_EmptyList(t *testing.T) {
+	_, err := RelayRequestMulti(
+		&http.Client{}, []string{}, "", "k",
+		"GET", "https://example.com", nil, nil, 5*time.Second,
+	)
+	if err == nil {
+		t.Error("expected error for empty URL list")
+	}
+}
