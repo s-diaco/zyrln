@@ -11,7 +11,7 @@ export ANDROID_HOME
 export GOTOOLCHAIN
 export GOFLAGS
 
-.PHONY: all desktop proxy test android android-debug keystore install clean
+.PHONY: all desktop proxy test android android-debug keystore clean
 
 all: desktop
 
@@ -69,13 +69,6 @@ android-debug:
 	cd android && ./gradlew assembleDebug
 	@echo "APK → $(APK_DEBUG)"
 
-## Install release APK to connected device via adb.
-install:
-	adb install -r $(APK_RELEASE)
-
-## Install debug APK to connected device via adb.
-install-debug:
-	adb install -r $(APK_DEBUG)
 
 clean:
 	rm -f zyrln $(AAR_OUT)

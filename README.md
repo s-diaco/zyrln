@@ -115,7 +115,7 @@ See [docs/android-setup.md](docs/android-setup.md) for the full build and setup 
 
 **Quick summary:**
 1. `make keystore && make android`: build signed APK
-2. `make install`: push to connected phone via adb
+2. Copy the APK from `android/app/build/outputs/apk/release/` to your phone and install it
 3. On desktop: `./zyrln -export-config` → copy the JSON
 4. In the app: tap **Import Config from Clipboard** → tap the config to connect
 

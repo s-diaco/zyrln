@@ -46,12 +46,7 @@ make android-debug    # compiles .aar and builds debug APK
 
 ## Install
 
-```bash
-make install        # install release APK via adb
-make install-debug  # install debug APK via adb
-```
-
-Or copy the APK to your phone and open it (enable "Install unknown apps" for your file manager).
+Copy the APK to your phone and open it. You may need to enable "Install unknown apps" for your file manager in Android settings.
 
 ## First Run
 
