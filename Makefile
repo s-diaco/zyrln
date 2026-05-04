@@ -63,7 +63,7 @@ android:
 		echo "  make keystore"; \
 		exit 1; \
 	fi
-	@if ! command -v gomobile >/dev/null 2>&1; then \
+	@if ! command -v gomobile >/dev/null 2>&1 && [ ! -f $(HOME)/go/bin/gomobile ]; then \
 		echo "gomobile not found. Run this first:"; \
 		echo "  go install golang.org/x/mobile/cmd/gomobile@latest && gomobile init"; \
 		exit 1; \
@@ -80,7 +80,7 @@ android:
 
 ## Build a debug APK (no keystore needed).
 android-debug:
-	@if ! command -v gomobile >/dev/null 2>&1; then \
+	@if ! command -v gomobile >/dev/null 2>&1 && [ ! -f $(HOME)/go/bin/gomobile ]; then \
 		echo "gomobile not found. Run this first:"; \
 		echo "  go install golang.org/x/mobile/cmd/gomobile@latest && gomobile init"; \
 		exit 1; \
