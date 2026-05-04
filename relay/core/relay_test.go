@@ -360,6 +360,81 @@ func TestRelayRequestMulti_SwitchesOnFailure(t *testing.T) {
 	}
 }
 
+func TestRelayRequestMulti_ThreeURLCircularLoop(t *testing.T) {
+	// Simulates the full loop: ID1 exhausted → ID2 → ID2 exhausted → ID3 → ID3 exhausted → ID1
+	// Each URL starts working, then gets "exhausted" after a certain number of hits.
+	var mu sync.Mutex
+	hits := map[string]int{}
+	// quota[path] = how many requests it will serve before returning quota HTML.
+	quota := map[string]int{
+		"/s/ID1/exec": 2,
+		"/s/ID2/exec": 2,
+		"/s/ID3/exec": 2,
+	}
+
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		hits[r.URL.Path]++
+		remaining := quota[r.URL.Path]
+		if remaining > 0 {
+			quota[r.URL.Path]--
+		}
+		mu.Unlock()
+
+		if remaining <= 0 {
+			w.Header().Set("Content-Type", "text/html")
+			fmt.Fprint(w, "<html>quota exceeded</html>")
+			return
+		}
+		resp := workerResponse{
+			Status: 200,
+			Body:   base64.StdEncoding.EncodeToString([]byte("ok")),
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	activeURLIdx.Store(0)
+	urls := []string{
+		srv.URL + "/s/ID1/exec",
+		srv.URL + "/s/ID2/exec",
+		srv.URL + "/s/ID3/exec",
+	}
+
+	type step struct {
+		wantActive string // which URL should serve the response
+	}
+	// 2 hits on ID1, then switch to ID2, 2 hits on ID2, then switch to ID3, 2 hits on ID3, then wrap to ID1 (quota reset)
+	// After all 3 are exhausted the next request will fail (no resets in test) — we only test up to that point.
+	steps := []string{
+		"/s/ID1/exec", // hit 1 on ID1
+		"/s/ID1/exec", // hit 2 on ID1 (exhausts it)
+		"/s/ID2/exec", // ID1 fails → switches to ID2
+		"/s/ID2/exec", // hit 2 on ID2 (exhausts it)
+		"/s/ID3/exec", // ID2 fails → switches to ID3
+		"/s/ID3/exec", // hit 2 on ID3 (exhausts it)
+	}
+
+	for i, wantPath := range steps {
+		mu.Lock()
+		before := hits[wantPath]
+		mu.Unlock()
+
+		_, err := RelayRequestMulti(srv.Client(), urls, srvHost(srv), "k", "GET", "https://x.com", nil, nil, 5*time.Second)
+		if err != nil {
+			t.Fatalf("step %d: unexpected error: %v", i+1, err)
+		}
+
+		mu.Lock()
+		after := hits[wantPath]
+		mu.Unlock()
+
+		if after != before+1 {
+			t.Errorf("step %d: expected %s to be hit, hits before=%d after=%d; all hits: %v", i+1, wantPath, before, after, hits)
+		}
+	}
+}
+
 func TestRelayRequestMulti_FallsBackOnError(t *testing.T) {
 	bad := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
