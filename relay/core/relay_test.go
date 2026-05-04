@@ -511,3 +511,84 @@ func TestRelayRequestMulti_EmptyList(t *testing.T) {
 		t.Error("expected error for empty URL list")
 	}
 }
+
+// --- compactErr ---
+
+func TestCompactErr_Nil(t *testing.T) {
+	if got := compactErr(nil); got != "" {
+		t.Errorf("compactErr(nil) = %q, want empty", got)
+	}
+}
+
+func TestCompactErr_PlainError(t *testing.T) {
+	err := fmt.Errorf("something went wrong")
+	if got := compactErr(err); got != "something went wrong" {
+		t.Errorf("compactErr = %q, want %q", got, "something went wrong")
+	}
+}
+
+func TestCompactErr_URLError(t *testing.T) {
+	inner := fmt.Errorf("connection refused")
+	wrapped := &url.Error{Op: "Post", URL: "https://example.com", Err: inner}
+	got := compactErr(wrapped)
+	if got != "connection refused" {
+		t.Errorf("compactErr(urlError) = %q, want inner message", got)
+	}
+}
+
+func TestCompactErr_StripNewlines(t *testing.T) {
+	err := fmt.Errorf("line1\nline2")
+	got := compactErr(err)
+	if strings.Contains(got, "\n") {
+		t.Errorf("compactErr should strip newlines, got %q", got)
+	}
+}
+
+// --- buildRelayPayload Content-Type ---
+
+func TestBuildRelayPayload_ContentType(t *testing.T) {
+	headers := map[string]string{"Content-Type": "application/json"}
+	raw := buildRelayPayload("k", "POST", "https://x.com", headers, []byte("{}"))
+	var p map[string]any
+	json.Unmarshal([]byte(raw), &p)
+	if p["ct"] != "application/json" {
+		t.Errorf("ct = %v, want application/json", p["ct"])
+	}
+}
+
+// --- newFrontedGET relative location ---
+
+func TestNewFrontedGET_RelativeLocation(t *testing.T) {
+	req, err := newFrontedGET(
+		context.Background(),
+		"www.google.com",
+		"/macros/run?id=ABC", // relative — no host
+		"https://script.google.com/macros/s/ABC/exec",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Should resolve relative to baseURL's host.
+	if req.Host != "script.google.com" {
+		t.Errorf("Host = %q, want script.google.com", req.Host)
+	}
+	if req.URL.Host != "www.google.com" {
+		t.Errorf("URL host = %q, want www.google.com (fronted)", req.URL.Host)
+	}
+}
+
+// --- tryOneURL invalid base64 body ---
+
+func TestTryOneURL_InvalidBase64Body(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Return valid JSON wrapper but invalid base64 in body field.
+		fmt.Fprint(w, `{"s":200,"h":{},"b":"!!!not-base64!!!"}`)
+	}))
+	defer srv.Close()
+
+	payload := buildRelayPayload("k", "GET", "https://x.com", nil, nil)
+	_, err := tryOneURL(srv.Client(), srv.URL, srvHost(srv), payload, 5*time.Second)
+	if err == nil || !strings.Contains(err.Error(), "base64") {
+		t.Errorf("expected base64 error, got %v", err)
+	}
+}
