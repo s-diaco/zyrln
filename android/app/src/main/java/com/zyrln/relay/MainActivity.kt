@@ -330,16 +330,21 @@ class MainActivity : AppCompatActivity() {
         val first = urls.firstOrNull() ?: return url
         return try {
             val uri = URI(first)
-            // For Apps Script URLs extract the script ID segment and show its tail.
-            // Format: /macros/s/SCRIPT_ID/exec
             if (uri.host == "script.google.com") {
                 val parts = uri.path.split("/")
                 val id = parts.getOrNull(parts.indexOf("s") + 1) ?: ""
-                if (id.length >= 6) "Script …${id.takeLast(8)}" else "Apps Script"
+                wordLabel(id)
             } else {
                 uri.host?.removePrefix("www.") ?: first
             }
         } catch (e: Exception) { first }
+    }
+
+    private fun wordLabel(seed: String): String {
+        val adj = listOf("swift","bold","quiet","bright","pure","sharp","calm","free")
+        val noun = listOf("relay","bridge","tunnel","gate","link","path","pass","line")
+        val h = seed.fold(0) { acc, c -> acc * 31 + c.code }
+        return "${adj[Math.abs(h) % adj.size]} ${noun[Math.abs(h / adj.size) % noun.size]}"
     }
 
     private fun installCACert() {
