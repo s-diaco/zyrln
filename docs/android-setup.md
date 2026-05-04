@@ -71,7 +71,7 @@ This is a one-time step.
 
 ### 2. Import your config
 
-On your desktop, export your config as JSON:
+On your desktop, make sure `config.env` is set up (see [README](../README.md#3-configure-and-run-the-desktop-proxy)), then export your config as JSON:
 
 ```bash
 ./zephyr -export-config

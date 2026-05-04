@@ -44,7 +44,7 @@ openssl rand -base64 32
 3. Set these constants at the top:
 
 ```js
-const AUTH_KEY       = "YOUR_KEY_FROM_STEP_0";
+const AUTH_KEY       = "YOUR_KEY_FROM_PREREQUISITES";
 const EXIT_RELAY_URL = "http://YOUR_VPS_IP:8787/relay";
 const EXIT_RELAY_KEY = "";   // optional extra key for the VPS relay
 ```
