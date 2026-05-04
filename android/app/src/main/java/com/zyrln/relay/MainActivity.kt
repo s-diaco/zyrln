@@ -287,7 +287,7 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Already in list", Toast.LENGTH_SHORT).show()
             }
         } catch (e: JSONException) {
-            Toast.makeText(this, "Invalid config — copy the JSON from ./zyrln -export-config", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Invalid config. Paste a JSON like {\"url\":\"...\",\"key\":\"...\"}", Toast.LENGTH_LONG).show()
         }
     }
 
