@@ -41,8 +41,7 @@ make android    # build signed release APK
 Or a debug build (no keystore needed):
 
 ```bash
-make aar              # compile Go → Android .aar library
-make android-debug    # build debug APK
+make android-debug    # compiles .aar and builds debug APK
 ```
 
 ## Install

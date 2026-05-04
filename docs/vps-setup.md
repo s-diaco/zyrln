@@ -44,6 +44,8 @@ ZEPHYR_RELAY_LISTEN=0.0.0.0:8787
 ZEPHYR_RELAY_KEY=your-optional-relay-key
 ```
 
+If you set `ZEPHYR_RELAY_KEY`, you must set the same value in Apps Script's `EXIT_RELAY_KEY` constant — otherwise Apps Script won't be able to reach the VPS and all relay requests will fail with 401.
+
 Enable and start:
 
 ```bash

@@ -1,5 +1,5 @@
 // Replace this with your Worker hostname only, without "https://".
-// Example: "my-mhr-relay.example.workers.dev"
+// Example: "zephyr.your-subdomain.workers.dev"
 const WORKER_HOST = "CHANGE_ME_WORKER_HOST";
 
 export default {
