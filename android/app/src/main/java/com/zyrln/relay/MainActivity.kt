@@ -327,8 +327,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun configLabel(url: String): String {
         val urls = url.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        val base = try {
-            val uri = URI(urls.first())
+        val first = urls.firstOrNull() ?: return url
+        return try {
+            val uri = URI(first)
             // For Apps Script URLs extract the script ID segment and show its tail.
             // Format: /macros/s/SCRIPT_ID/exec
             if (uri.host == "script.google.com") {
@@ -336,10 +337,9 @@ class MainActivity : AppCompatActivity() {
                 val id = parts.getOrNull(parts.indexOf("s") + 1) ?: ""
                 if (id.length >= 6) "Script …${id.takeLast(8)}" else "Apps Script"
             } else {
-                uri.host?.removePrefix("www.") ?: urls.first()
+                uri.host?.removePrefix("www.") ?: first
             }
-        } catch (e: Exception) { urls.first() }
-        return base
+        } catch (e: Exception) { first }
     }
 
     private fun installCACert() {
