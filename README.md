@@ -76,7 +76,7 @@ auth-key              = YOUR_KEY_FROM_PREREQUISITES
 listen                = 127.0.0.1:8085
 ```
 
-`fronted-appscript-url` accepts a comma-separated list of Apps Script URLs. The proxy tries them in order and falls back to the next one automatically when one hits its quota or returns an error. Each URL should be a separately deployed Apps Script under a different Google account.
+`fronted-appscript-url` accepts a comma-separated list of Apps Script URLs. The proxy sticks to the first URL until it hits its daily quota, then automatically switches to the next one and sticks there. When the last URL is exhausted it wraps back to the first (which has reset by then). Each URL should be a separately deployed Apps Script — ideally under a different Google account to get a separate quota.
 
 Generate the local CA once:
 
