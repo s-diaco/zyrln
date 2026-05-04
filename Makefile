@@ -5,7 +5,7 @@ GOFLAGS      ?= -buildvcs=false
 AAR_OUT       = android/app/libs/mobile.aar
 APK_VERSION   = 1.2
 APK_RELEASE   = android/app/build/outputs/apk/release/zyrln-$(APK_VERSION).apk
-APK_DEBUG     = android/app/build/outputs/apk/debug/zyrln-$(APK_VERSION).apk
+APK_DEBUG     = android/app/build/outputs/apk/debug/zyrln-$(APK_VERSION)-debug.apk
 
 export ANDROID_HOME
 export GOTOOLCHAIN

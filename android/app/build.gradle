@@ -59,7 +59,8 @@ android {
 
     applicationVariants.all { variant ->
         variant.outputs.all { output ->
-            outputFileName = "zyrln-${variant.versionName}.apk"
+            def suffix = variant.buildType.name == "debug" ? "-debug" : ""
+            outputFileName = "zyrln-${variant.versionName}${suffix}.apk"
         }
     }
 }
