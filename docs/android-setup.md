@@ -15,8 +15,8 @@ The app uses Android's `VpnService` to set a system-wide HTTP proxy pointing to 
 
 ## Prerequisites
 
-- Apps Script relay deployed (see main README)
-- VPS relay running (see `docs/vps-setup.md`)
+- Apps Script relay deployed (see [README](../README.md))
+- VPS relay running (see [docs/vps-setup.md](vps-setup.md))
 - Android SDK installed with NDK
 - Go 1.25+ with gomobile
 

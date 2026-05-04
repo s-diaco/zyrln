@@ -83,4 +83,4 @@ curl -X POST http://YOUR_VPS:8787/relay \
 ## Using Cloudflare Worker Instead
 
 If you prefer not to run a VPS, use `relay/cloudflare/worker.js` as the exit relay.
-Deploy it on Cloudflare Workers (free tier works) and set `EXIT_RELAY_URL` in your Apps Script to the Worker URL.
+See [docs/cloudflare-setup.md](cloudflare-setup.md) for deployment instructions.

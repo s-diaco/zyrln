@@ -30,14 +30,6 @@ const EXIT_RELAY_KEY = "";   // leave empty, Cloudflare Workers don't use this
 
 Then redeploy the Apps Script web app (Deploy → Manage deployments → create a new version).
 
-## Test
-
-```bash
-make test
-# relay fetch ok
-# status: 204
-```
-
 ## Cloudflare vs VPS
 
 | | Cloudflare Worker | VPS Relay |

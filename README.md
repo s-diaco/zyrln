@@ -45,18 +45,8 @@ const EXIT_RELAY_KEY = "";                          // optional extra key for th
 
 ### 2. Deploy the VPS relay
 
-Copy the binary to your server and run it:
-
-```bash
-# Build for Linux
-GOOS=linux GOARCH=amd64 go build -o zephyr-relay ./relay/vps/main.go
-
-# Copy to server and run
-scp zephyr-relay root@YOUR_VPS:/usr/local/bin/
-ssh root@YOUR_VPS "ZEPHYR_RELAY_LISTEN=0.0.0.0:8787 /usr/local/bin/zephyr-relay"
-```
-
-See `docs/vps-setup.md` for running it as a systemd service.
+See [docs/vps-setup.md](docs/vps-setup.md) — covers build, systemd service, firewall, and testing.
+Alternatively, use a Cloudflare Worker as the exit relay (see [docs/cloudflare-setup.md](docs/cloudflare-setup.md)).
 
 ### 3. Configure and run the desktop proxy
 
@@ -96,13 +86,13 @@ make test
 
 ## Android
 
-See `docs/android-setup.md` for building and installing the Android app.
+See [docs/android-setup.md](docs/android-setup.md) for the full build and setup guide.
 
 **Quick summary:**
-1. Build the APK: `make android`
-2. Install: `adb install android/app/build/outputs/apk/debug/app-debug.apk`
-3. Open the app → tap **Install CA Certificate** → follow the steps
-4. Enter your Apps Script URL and auth key → tap **Connect**
+1. `make keystore && make android` — build signed APK
+2. `make install` — push to connected phone via adb
+3. On desktop: `./zephyr -export-config` → copy the JSON
+4. In the app: tap **Import Config from Clipboard** → tap the config to connect
 
 ## Build Reference
 
