@@ -28,7 +28,6 @@ import androidx.core.content.ContextCompat
 import com.zyrln.relay.databinding.ActivityMainBinding
 import mobile.Mobile
 import java.io.File
-import java.net.URI
 
 class MainActivity : AppCompatActivity() {
 

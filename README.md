@@ -20,6 +20,7 @@ TLS connections go to Google's IP ranges. The encrypted `Host` header targets yo
 - **Full HTTPS support**: local MITM proxy terminates TLS and re-encrypts, so blocked HTTPS sites work transparently
 - **Android VPN app**: one-tap connect routes all phone traffic through the relay without root or per-app config
 - **Self-hosted exit relay**: run your own VPS exit node (or use a Cloudflare Worker) — no third-party relay services
+- **Multi-URL quota failover**: configure multiple Apps Script deployments as a comma-separated list; the relay sticks to the first URL until it hits its 20k/day quota, then automatically switches to the next — no reconnection, no downtime. Wraps back to the first when the last one exhausts (quota resets by then)
 - **Multiple saved configs**: store and switch between relay configs on Android with a single tap
 - **Desktop + Android**: the same relay core powers both the desktop CLI proxy and the Android app via gomobile
 

@@ -18,7 +18,7 @@ reports/
 /dist/
 
 # Android signing — never commit
-android/zyrln.jks
+android/*.jks
 android/keystore.properties
 
 # Android build artifacts — run `make aar` to regenerate
