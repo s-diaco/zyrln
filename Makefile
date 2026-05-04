@@ -30,6 +30,12 @@ proxy:
 
 ## Smoke test the full relay chain.
 test:
+	@if [ ! -f config.env ]; then \
+		echo "config.env not found. Create it with:"; \
+		echo "  fronted-appscript-url = https://script.google.com/macros/s/YOUR_ID/exec"; \
+		echo "  auth-key              = YOUR_KEY"; \
+		exit 1; \
+	fi
 	GOCACHE=$(GOCACHE) go run ./platforms/desktop/ -relay-fetch-url 'https://www.gstatic.com/generate_204'
 
 ## Generate a release signing keystore (run once before `make android`).
@@ -52,6 +58,16 @@ keystore:
 
 ## Build the release APK (requires keystore first).
 android:
+	@if [ ! -f android/keystore.properties ]; then \
+		echo "Keystore not found. Run this first:"; \
+		echo "  make keystore"; \
+		exit 1; \
+	fi
+	@if ! command -v gomobile >/dev/null 2>&1; then \
+		echo "gomobile not found. Run this first:"; \
+		echo "  go install golang.org/x/mobile/cmd/gomobile@latest && gomobile init"; \
+		exit 1; \
+	fi
 	@echo "Building gomobile AAR..."
 	@mkdir -p android/app/libs
 	PATH=$(PATH):$(HOME)/go/bin GOCACHE=$(GOCACHE) gomobile bind \
@@ -64,6 +80,11 @@ android:
 
 ## Build a debug APK (no keystore needed).
 android-debug:
+	@if ! command -v gomobile >/dev/null 2>&1; then \
+		echo "gomobile not found. Run this first:"; \
+		echo "  go install golang.org/x/mobile/cmd/gomobile@latest && gomobile init"; \
+		exit 1; \
+	fi
 	@echo "Building gomobile AAR..."
 	@mkdir -p android/app/libs
 	PATH=$(PATH):$(HOME)/go/bin GOCACHE=$(GOCACHE) gomobile bind \
