@@ -12,10 +12,32 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
 const maxRelayBody = 16 * 1024 * 1024
+
+// ParseURLList splits a comma-separated URL string and strips all whitespace
+// from each entry, including embedded newlines from copy-paste artifacts.
+func ParseURLList(raw string) []string {
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		u := strings.Map(func(r rune) rune {
+			if r == ' ' || r == '\n' || r == '\r' || r == '\t' {
+				return -1
+			}
+			return r
+		}, p)
+		if u != "" {
+			out = append(out, u)
+		}
+	}
+	return out
+}
+
+var activeURLIdx atomic.Int64
 
 type workerResponse struct {
 	Status  int               `json:"s"`
@@ -48,6 +70,7 @@ func NewHTTPClient(timeout time.Duration) *http.Client {
 }
 
 // RelayRequest sends method+targetURL through the domain-fronted Apps Script relay chain.
+// It is a convenience wrapper around RelayRequestMulti with a single URL.
 func RelayRequest(
 	client *http.Client,
 	appScriptURL, frontDomain, authKey,
@@ -56,7 +79,45 @@ func RelayRequest(
 	body []byte,
 	timeout time.Duration,
 ) (RelayResponse, error) {
+	return RelayRequestMulti(client, []string{appScriptURL}, frontDomain, authKey, method, targetURL, headers, body, timeout)
+}
+
+// RelayRequestMulti uses a sticky circular failover across appScriptURLs.
+// It sticks to the current URL until it fails (e.g. quota exhausted), then
+// advances to the next one and sticks there. When the last URL fails it wraps
+// back to the first, which will have had its quota reset by then.
+func RelayRequestMulti(
+	client *http.Client,
+	appScriptURLs []string,
+	frontDomain, authKey,
+	method, targetURL string,
+	headers map[string]string,
+	body []byte,
+	timeout time.Duration,
+) (RelayResponse, error) {
+	n := len(appScriptURLs)
+	if n == 0 {
+		return RelayResponse{}, fmt.Errorf("no Apps Script URLs configured")
+	}
 	payload := buildRelayPayload(authKey, method, targetURL, headers, body)
+	start := int(activeURLIdx.Load()) % n
+	var lastErr error
+	for i := 0; i < n; i++ {
+		idx := (start + i) % n
+		resp, err := tryOneURL(client, appScriptURLs[idx], frontDomain, payload, timeout)
+		if err == nil {
+			if i > 0 {
+				activeURLIdx.Store(int64(idx))
+				fmt.Printf("[relay] quota exhausted on URL %d, switched to URL %d/%d\n", start+1, idx+1, n)
+			}
+			return resp, nil
+		}
+		lastErr = err
+	}
+	return RelayResponse{}, lastErr
+}
+
+func tryOneURL(client *http.Client, appScriptURL, frontDomain, payload string, timeout time.Duration) (RelayResponse, error) {
 	raw, err := appsScriptRoundTrip(client, appScriptURL, frontDomain, payload, timeout)
 	if err != nil {
 		return RelayResponse{}, err

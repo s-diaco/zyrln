@@ -20,6 +20,7 @@ TLS connections go to Google's IP ranges. The encrypted `Host` header targets yo
 - **Full HTTPS support**: local MITM proxy terminates TLS and re-encrypts, so blocked HTTPS sites work transparently
 - **Android VPN app**: one-tap connect routes all phone traffic through the relay without root or per-app config
 - **Self-hosted exit relay**: run your own VPS exit node (or use a Cloudflare Worker) — no third-party relay services
+- **Multi-URL quota failover**: configure multiple Apps Script deployments as a comma-separated list; the relay sticks to the first URL until it hits its 20k/day quota, then automatically switches to the next — no reconnection, no downtime. Wraps back to the first when the last one exhausts (quota resets by then)
 - **Multiple saved configs**: store and switch between relay configs on Android with a single tap
 - **Desktop + Android**: the same relay core powers both the desktop CLI proxy and the Android app via gomobile
 
@@ -71,10 +72,12 @@ Alternatively, use a Cloudflare Worker as the exit relay (see [docs/cloudflare-s
 Create `config.env` (gitignored):
 
 ```
-fronted-appscript-url = https://script.google.com/macros/s/YOUR_ID/exec
+fronted-appscript-url = https://script.google.com/macros/s/YOUR_ID/exec,https://script.google.com/macros/s/BACKUP_ID/exec
 auth-key              = YOUR_KEY_FROM_PREREQUISITES
 listen                = 127.0.0.1:8085
 ```
+
+`fronted-appscript-url` accepts a comma-separated list of Apps Script URLs. The proxy sticks to the first URL until it hits its daily quota, then automatically switches to the next one and sticks there. When the last URL is exhausted it wraps back to the first (which has reset by then). Each URL should be a separately deployed Apps Script — ideally under a different Google account to get a separate quota.
 
 Generate the local CA once:
 

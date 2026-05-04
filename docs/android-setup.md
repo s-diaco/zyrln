@@ -35,7 +35,7 @@ Build everything:
 ```bash
 make keystore   # generate signing keystore (run once)
 make android    # build signed release APK
-# APK → android/app/build/outputs/apk/release/zyrln-1.0.apk
+# APK → android/app/build/outputs/apk/release/zyrln-1.2.apk
 ```
 
 Or a debug build (no keystore needed):
@@ -83,6 +83,14 @@ Copy that JSON, then on your phone:
 2. The config is saved to the list automatically (duplicates are skipped)
 
 You can save multiple configs and switch between them.
+
+**Multiple Apps Script URLs (quota fallback):** To survive daily quota limits, put multiple Apps Script URLs in the `url` field as a comma-separated list:
+
+```json
+{"url":"https://script.google.com/.../exec1,https://script.google.com/.../exec2","key":"your-auth-key"}
+```
+
+The app sticks to the first URL until it hits its quota, then automatically switches to the next one — no reconnection needed. When the last URL exhausts, it wraps back to the first (reset by then). Each URL should be a separate Apps Script deployment under a different Google account.
 
 ### 3. Connect
 

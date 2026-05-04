@@ -14,8 +14,9 @@ import (
 )
 
 // ServeProxy starts the relay HTTP+HTTPS MITM proxy and blocks until it exits.
-func ServeProxy(listenAddr, appScriptURL, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) error {
-	srv, err := listenAndServeProxy(listenAddr, appScriptURL, frontDomain, authKey, ca, client, timeout)
+// appScriptURLs is tried in order; the first that succeeds is used for each request.
+func ServeProxy(listenAddr string, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) error {
+	srv, err := listenAndServeProxy(listenAddr, appScriptURLs, frontDomain, authKey, ca, client, timeout)
 	if err != nil {
 		return err
 	}
@@ -23,8 +24,9 @@ func ServeProxy(listenAddr, appScriptURL, frontDomain, authKey string, ca *CertA
 }
 
 // StartProxy starts the relay proxy in the background and returns the server for shutdown.
-func StartProxy(listenAddr, appScriptURL, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) (*http.Server, error) {
-	srv, err := listenAndServeProxy(listenAddr, appScriptURL, frontDomain, authKey, ca, client, timeout)
+// appScriptURLs is tried in order; the first that succeeds is used for each request.
+func StartProxy(listenAddr string, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) (*http.Server, error) {
+	srv, err := listenAndServeProxy(listenAddr, appScriptURLs, frontDomain, authKey, ca, client, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -37,21 +39,21 @@ func StartProxy(listenAddr, appScriptURL, frontDomain, authKey string, ca *CertA
 	return srv, nil
 }
 
-func listenAndServeProxy(listenAddr, appScriptURL, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) (*http.Server, error) {
+func listenAndServeProxy(listenAddr string, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) (*http.Server, error) {
 	return &http.Server{
 		Addr: listenAddr,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodConnect {
-				handleConnect(w, r, client, appScriptURL, frontDomain, authKey, ca, timeout)
+				handleConnect(w, r, client, appScriptURLs, frontDomain, authKey, ca, timeout)
 			} else {
-				handleHTTP(w, r, client, appScriptURL, frontDomain, authKey, timeout)
+				handleHTTP(w, r, client, appScriptURLs, frontDomain, authKey, timeout)
 			}
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}, nil
 }
 
-func handleHTTP(w http.ResponseWriter, r *http.Request, client *http.Client, appScriptURL, frontDomain, authKey string, timeout time.Duration) {
+func handleHTTP(w http.ResponseWriter, r *http.Request, client *http.Client, appScriptURLs []string, frontDomain, authKey string, timeout time.Duration) {
 	targetURL := r.URL.String()
 	if !r.URL.IsAbs() {
 		scheme := "http"
@@ -68,7 +70,7 @@ func handleHTTP(w http.ResponseWriter, r *http.Request, client *http.Client, app
 	}
 	defer r.Body.Close()
 
-	relayResp, err := RelayRequest(client, appScriptURL, frontDomain, authKey, r.Method, targetURL, forwardHeaders(r.Header), body, timeout)
+	relayResp, err := RelayRequestMulti(client, appScriptURLs, frontDomain, authKey, r.Method, targetURL, forwardHeaders(r.Header), body, timeout)
 	if err != nil {
 		http.Error(w, "relay failed: "+err.Error(), http.StatusBadGateway)
 		fmt.Printf("%s %s -> error: %s\n", r.Method, targetURL, err)
@@ -85,7 +87,7 @@ func handleHTTP(w http.ResponseWriter, r *http.Request, client *http.Client, app
 	fmt.Printf("%s %s -> %d %dB\n", r.Method, targetURL, relayResp.Status, len(relayResp.Body))
 }
 
-func handleConnect(w http.ResponseWriter, r *http.Request, client *http.Client, appScriptURL, frontDomain, authKey string, ca *CertAuthority, timeout time.Duration) {
+func handleConnect(w http.ResponseWriter, r *http.Request, client *http.Client, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, timeout time.Duration) {
 	hijacker, ok := w.(http.Hijacker)
 	if !ok {
 		http.Error(w, "hijacking not supported", http.StatusInternalServerError)
@@ -143,7 +145,7 @@ func handleConnect(w http.ResponseWriter, r *http.Request, client *http.Client, 
 		}
 
 		targetURL := "https://" + host + req.URL.RequestURI()
-		relayResp, err := RelayRequest(client, appScriptURL, frontDomain, authKey, req.Method, targetURL, forwardHeaders(req.Header), body, timeout)
+		relayResp, err := RelayRequestMulti(client, appScriptURLs, frontDomain, authKey, req.Method, targetURL, forwardHeaders(req.Header), body, timeout)
 		if err != nil {
 			writeHTTPError(tlsConn, http.StatusBadGateway, "relay failed: "+err.Error())
 			fmt.Printf("%s %s -> error: %s\n", req.Method, targetURL, err)

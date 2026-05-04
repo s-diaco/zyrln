@@ -28,7 +28,6 @@ import androidx.core.content.ContextCompat
 import com.zyrln.relay.databinding.ActivityMainBinding
 import mobile.Mobile
 import java.io.File
-import java.net.URI
 
 class MainActivity : AppCompatActivity() {
 
@@ -164,7 +163,31 @@ class MainActivity : AppCompatActivity() {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 text = displayLabel
                 textSize = 16f
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
                 if (isActive) setTypeface(null, Typeface.BOLD)
+            }
+
+            val urlList = url.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+            val infoBtn = android.widget.ImageButton(this).apply {
+                visibility = if (urlList.size > 1) View.VISIBLE else View.GONE
+                setImageDrawable(ContextCompat.getDrawable(this@MainActivity, android.R.drawable.ic_menu_info_details))
+                background = null
+                layoutParams = LinearLayout.LayoutParams(
+                    (32 * dp).toInt(), (32 * dp).toInt()
+                ).apply { marginEnd = (4 * dp).toInt() }
+            }
+            infoBtn.setOnClickListener {
+                val lines = urlList.mapIndexed { i, u ->
+                    val id = u.substringAfter("/macros/s/", "").substringBefore("/")
+                    val short = if (id.length >= 6) "…${id.takeLast(10)}" else u.substringAfter("://").substringBefore("/")
+                    "${i + 1}. $short"
+                }.joinToString("\n")
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("${urlList.size} Apps Script URLs")
+                    .setMessage(lines)
+                    .setPositiveButton("OK", null)
+                    .show()
             }
 
             val action = TextView(this).apply {
@@ -184,6 +207,7 @@ class MainActivity : AppCompatActivity() {
 
             row.addView(dot)
             row.addView(label)
+            row.addView(infoBtn)
             row.addView(action)
             row.addView(deleteBtn)
             card.addView(row)
@@ -253,8 +277,8 @@ class MainActivity : AppCompatActivity() {
         }
         try {
             val json = JSONObject(text)
-            val url = json.getString("url")
-            val key = json.getString("key")
+            val url = json.getString("url").replace(Regex("[\\s]"), "")
+            val key = json.getString("key").trim()
             if (url.isEmpty() || key.isEmpty()) throw JSONException("empty fields")
             if (saveConfig(url, key)) {
                 refreshList()
@@ -295,18 +319,22 @@ class MainActivity : AppCompatActivity() {
         prefs.edit().putString("configs", arr.toString()).apply()
     }
 
-    private fun configLabel(url: String): String = try {
-        val uri = URI(url)
-        // For Apps Script URLs extract the script ID segment and show its tail.
-        // Format: /macros/s/SCRIPT_ID/exec
-        if (uri.host == "script.google.com") {
-            val parts = uri.path.split("/")
-            val id = parts.getOrNull(parts.indexOf("s") + 1) ?: ""
-            if (id.length >= 6) "Script …${id.takeLast(8)}" else "Apps Script"
-        } else {
-            uri.host?.removePrefix("www.") ?: url
-        }
-    } catch (e: Exception) { url }
+    private fun configLabel(url: String): String {
+        val first = url.split(",").firstOrNull()?.trim() ?: return url
+        val id = first.substringAfter("/macros/s/", "").substringBefore("/")
+        if (id.length >= 6) return wordLabel(id)
+        return first.substringAfter("://").substringBefore("/").removePrefix("www.")
+    }
+
+    private fun wordLabel(seed: String): String {
+        val adj = listOf("swift","bold","quiet","bright","pure","sharp","calm","free")
+        val noun = listOf("relay","bridge","tunnel","gate","link","path","pass","line")
+        var h = 0L
+        for (c in seed) h = h * 31 + c.code
+        val ai = ((h % adj.size) + adj.size).toInt() % adj.size
+        val ni = ((h / adj.size % noun.size) + noun.size).toInt() % noun.size
+        return "${adj[ai]} ${noun[ni]}"
+    }
 
     private fun installCACert() {
         val certDir = File(filesDir, "certs")

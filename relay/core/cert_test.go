@@ -1,12 +1,17 @@
 package core
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/pem"
+	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func generateTestCA(t *testing.T) (certPath, keyPath string) {
@@ -152,6 +157,50 @@ func TestCertForHost_IPAddress(t *testing.T) {
 	}
 	if len(parsed.DNSNames) != 0 {
 		t.Error("expected no DNS SANs for IP host")
+	}
+}
+
+func TestLoadCA_RSABackwardCompat(t *testing.T) {
+	// Generate a legacy RSA CA key pair and verify LoadCA accepts it.
+	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("rsa.GenerateKey: %v", err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "test-rsa-ca"},
+		NotBefore:             time.Now().Add(-time.Minute),
+		NotAfter:              time.Now().Add(time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+	}
+	certDER, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &rsaKey.PublicKey, rsaKey)
+	if err != nil {
+		t.Fatalf("CreateCertificate: %v", err)
+	}
+
+	dir := t.TempDir()
+	certPath := filepath.Join(dir, "ca.pem")
+	keyPath := filepath.Join(dir, "ca-key.pem")
+
+	certFile, _ := os.Create(certPath)
+	pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+	certFile.Close()
+
+	keyFile, _ := os.Create(keyPath)
+	pem.Encode(keyFile, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(rsaKey)})
+	keyFile.Close()
+
+	ca, err := LoadCA(certPath, keyPath)
+	if err != nil {
+		t.Fatalf("LoadCA with RSA key failed: %v", err)
+	}
+	if ca == nil {
+		t.Fatal("LoadCA returned nil")
+	}
+	// Verify it can still sign leaf certs.
+	if _, err := ca.CertForHost("rsa-test.com"); err != nil {
+		t.Errorf("CertForHost with RSA CA failed: %v", err)
 	}
 }
 

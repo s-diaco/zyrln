@@ -167,13 +167,13 @@ Flags:
 	}
 
 	if *exportConfigFlag {
-		url := strings.TrimSpace(*frontedAppScriptURLFlag)
+		rawURL := strings.TrimSpace(*frontedAppScriptURLFlag)
 		key := strings.TrimSpace(*authKeyFlag)
-		if url == "" || key == "" {
+		if rawURL == "" || key == "" {
 			fmt.Fprintln(os.Stderr, "-export-config requires -fronted-appscript-url and -auth-key (or config.env)")
 			os.Exit(1)
 		}
-		out, _ := json.Marshal(map[string]string{"url": url, "key": key})
+		out, _ := json.Marshal(map[string]string{"url": rawURL, "key": key})
 		fmt.Println(string(out))
 		return
 	}
@@ -209,8 +209,10 @@ Flags:
 		}
 	}
 
+	appScriptURLs := parseURLList(strings.TrimSpace(*frontedAppScriptURLFlag))
+
 	if strings.TrimSpace(*relayFetchURLFlag) != "" {
-		if strings.TrimSpace(*frontedAppScriptURLFlag) == "" {
+		if len(appScriptURLs) == 0 {
 			fmt.Fprintln(os.Stderr, "-relay-fetch-url requires -fronted-appscript-url")
 			os.Exit(1)
 		}
@@ -218,7 +220,7 @@ Flags:
 			fmt.Fprintln(os.Stderr, "-relay-fetch-url requires -auth-key")
 			os.Exit(1)
 		}
-		if err := relayFetch(client, *frontedAppScriptURLFlag, *frontDomainFlag, *authKeyFlag, *relayFetchURLFlag, *bodyOutFlag, *timeoutFlag); err != nil {
+		if err := relayFetch(client, appScriptURLs, *frontDomainFlag, *authKeyFlag, *relayFetchURLFlag, *bodyOutFlag, *timeoutFlag); err != nil {
 			fmt.Fprintf(os.Stderr, "relay fetch failed: %v\n", err)
 			os.Exit(1)
 		}
@@ -226,7 +228,7 @@ Flags:
 	}
 
 	if *serveProxyFlag {
-		if strings.TrimSpace(*frontedAppScriptURLFlag) == "" {
+		if len(appScriptURLs) == 0 {
 			fmt.Fprintln(os.Stderr, "-serve-proxy requires -fronted-appscript-url")
 			os.Exit(1)
 		}
@@ -241,7 +243,10 @@ Flags:
 		}
 		fmt.Printf("relay HTTP proxy listening on http://%s\n", *listenFlag)
 		fmt.Printf("mode: HTTP and HTTPS via local CA MITM; install %s as trusted CA for browsers\n", *caCertFlag)
-		if err := core.ServeProxy(*listenFlag, *frontedAppScriptURLFlag, *frontDomainFlag, *authKeyFlag, ca, client, *timeoutFlag); err != nil {
+		if len(appScriptURLs) > 1 {
+			fmt.Printf("fallback: %d Apps Script URLs configured\n", len(appScriptURLs))
+		}
+		if err := core.ServeProxy(*listenFlag, appScriptURLs, *frontDomainFlag, *authKeyFlag, ca, client, *timeoutFlag); err != nil {
 			fmt.Fprintf(os.Stderr, "proxy failed: %v\n", err)
 			os.Exit(1)
 		}
@@ -252,9 +257,9 @@ Flags:
 	if strings.TrimSpace(*appScriptURLFlag) != "" {
 		probes = append(probes, appScriptProbes(strings.TrimSpace(*appScriptURLFlag))...)
 	}
-	if strings.TrimSpace(*frontedAppScriptURLFlag) != "" {
+	if len(appScriptURLs) > 0 {
 		fp, err := frontedAppScriptProbes(
-			strings.TrimSpace(*frontedAppScriptURLFlag),
+			appScriptURLs[0],
 			strings.TrimSpace(*frontDomainFlag),
 			strings.TrimSpace(*authKeyFlag),
 			strings.TrimSpace(*targetURLFlag),
@@ -309,8 +314,12 @@ Flags:
 	}
 }
 
-func relayFetch(client *http.Client, appScriptURL, frontDomain, authKey, targetURL, bodyOut string, timeout time.Duration) error {
-	resp, err := core.RelayRequest(client, appScriptURL, frontDomain, authKey, "GET", targetURL, map[string]string{"User-Agent": "zyrln/0.1"}, nil, timeout)
+func parseURLList(raw string) []string {
+	return core.ParseURLList(raw)
+}
+
+func relayFetch(client *http.Client, appScriptURLs []string, frontDomain, authKey, targetURL, bodyOut string, timeout time.Duration) error {
+	resp, err := core.RelayRequestMulti(client, appScriptURLs, frontDomain, authKey, "GET", targetURL, map[string]string{"User-Agent": "zyrln/0.1"}, nil, timeout)
 	if err != nil {
 		return err
 	}

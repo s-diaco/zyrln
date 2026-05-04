@@ -1,8 +1,13 @@
 package core
 
 import (
+	"encoding/base64"
+	"encoding/json"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestSkipRequestHeader(t *testing.T) {
@@ -93,5 +98,49 @@ func TestForwardHeaders_MultiValueTakesFirst(t *testing.T) {
 	out := forwardHeaders(h)
 	if out["Accept"] != "text/html" {
 		t.Errorf("Accept = %q, want text/html (first value)", out["Accept"])
+	}
+}
+
+// --- proxy handler integration ---
+
+func TestHandleHTTP_RelaysRequest(t *testing.T) {
+	appScript := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := workerResponse{
+			Status:  200,
+			Headers: map[string]string{"content-type": "text/plain"},
+			Body:    base64.StdEncoding.EncodeToString([]byte("proxied")),
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer appScript.Close()
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "http://example.com/test", nil)
+
+	handleHTTP(w, r, appScript.Client(), []string{appScript.URL}, appScript.Listener.Addr().String(), "k", 5*time.Second)
+
+	if w.Code != 200 {
+		t.Errorf("status = %d, want 200", w.Code)
+	}
+	body, _ := io.ReadAll(w.Body)
+	if string(body) != "proxied" {
+		t.Errorf("body = %q, want proxied", body)
+	}
+}
+
+func TestHandleHTTP_RelayError_Returns502(t *testing.T) {
+	// Apps Script returns 500 — relay should return 502 to client.
+	appScript := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(500)
+	}))
+	defer appScript.Close()
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "http://example.com/test", nil)
+
+	handleHTTP(w, r, appScript.Client(), []string{appScript.URL}, appScript.Listener.Addr().String(), "k", 5*time.Second)
+
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("status = %d, want 502", w.Code)
 	}
 }
