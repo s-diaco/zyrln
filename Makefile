@@ -3,8 +3,9 @@ ANDROID_HOME ?= $(HOME)/Android/Sdk
 GOTOOLCHAIN  ?= go1.25.0
 GOFLAGS      ?= -buildvcs=false
 AAR_OUT       = android/app/libs/mobile.aar
-APK_RELEASE   = android/app/build/outputs/apk/release/zyrln-1.0.apk
-APK_DEBUG     = android/app/build/outputs/apk/debug/zyrln-1.0.apk
+APK_VERSION   = 1.1
+APK_RELEASE   = android/app/build/outputs/apk/release/zyrln-$(APK_VERSION).apk
+APK_DEBUG     = android/app/build/outputs/apk/debug/zyrln-$(APK_VERSION).apk
 
 export ANDROID_HOME
 export GOTOOLCHAIN
