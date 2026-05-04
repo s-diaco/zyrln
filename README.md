@@ -107,7 +107,7 @@ Set your browser's HTTP and HTTPS proxy to `127.0.0.1:8085`.
 make test
 ```
 
-You should see `relay fetch ok` and `status: 204`. If not, check your Apps Script deployment and VPS relay are running.
+This sends a real request through the full relay chain (Apps Script → VPS → gstatic.com). You should see `relay fetch ok` and `status: 204`. If not, check that your Apps Script deployment and VPS relay are both running and the auth key matches in all three places.
 
 ## Android
 

@@ -2,6 +2,11 @@
 
 The VPS relay is the exit node. It receives requests from Apps Script and fetches the real target URL.
 
+## Prerequisites
+
+- Go 1.25+ on your local machine (for cross-compiling)
+- A Linux VPS (amd64). For ARM, change `GOARCH=amd64` to `GOARCH=arm64` in the build command
+
 ## Build and Deploy
 
 On your local machine, cross-compile for Linux:
@@ -51,6 +56,7 @@ Enable and start:
 ```bash
 systemctl daemon-reload
 systemctl enable --now zyrln-relay
+systemctl status zyrln-relay   # should show "active (running)"
 ```
 
 ## Open the Firewall
