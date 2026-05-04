@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"zyrln/relay/core"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"zyrln/relay/core"
 )
 
 const defaultProxyAddress = "direct"
@@ -636,9 +637,8 @@ func compactError(err error) string {
 	}
 	msg := err.Error()
 	var urlErr *url.Error
-	if urlErr2, ok := err.(*url.Error); ok && urlErr2.Err != nil {
-		_ = urlErr
-		msg = urlErr2.Err.Error()
+	if errors.As(err, &urlErr) && urlErr.Err != nil {
+		msg = urlErr.Err.Error()
 	}
 	return strings.ReplaceAll(msg, "\n", " ")
 }
