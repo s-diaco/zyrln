@@ -5,7 +5,6 @@ import (
 	"zyrln/relay/core"
 	"fmt"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 )
@@ -54,20 +53,7 @@ func Start(appScriptURL, authKey, listenAddr, caCertPath, caKeyPath string) stri
 }
 
 func parseURLList(raw string) []string {
-	parts := strings.Split(raw, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		u := strings.Map(func(r rune) rune {
-			if r == ' ' || r == '\n' || r == '\r' || r == '\t' {
-				return -1
-			}
-			return r
-		}, p)
-		if u != "" {
-			out = append(out, u)
-		}
-	}
-	return out
+	return core.ParseURLList(raw)
 }
 
 // Stop shuts down the relay proxy.

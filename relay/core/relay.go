@@ -18,6 +18,25 @@ import (
 
 const maxRelayBody = 16 * 1024 * 1024
 
+// ParseURLList splits a comma-separated URL string and strips all whitespace
+// from each entry, including embedded newlines from copy-paste artifacts.
+func ParseURLList(raw string) []string {
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		u := strings.Map(func(r rune) rune {
+			if r == ' ' || r == '\n' || r == '\r' || r == '\t' {
+				return -1
+			}
+			return r
+		}, p)
+		if u != "" {
+			out = append(out, u)
+		}
+	}
+	return out
+}
+
 var activeURLIdx atomic.Int64
 
 type workerResponse struct {

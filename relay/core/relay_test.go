@@ -512,6 +512,56 @@ func TestRelayRequestMulti_EmptyList(t *testing.T) {
 	}
 }
 
+// --- ParseURLList ---
+
+func TestParseURLList_Single(t *testing.T) {
+	got := ParseURLList("https://example.com/exec")
+	if len(got) != 1 || got[0] != "https://example.com/exec" {
+		t.Errorf("got %v", got)
+	}
+}
+
+func TestParseURLList_Two(t *testing.T) {
+	got := ParseURLList("https://a.com/exec,https://b.com/exec")
+	if len(got) != 2 || got[0] != "https://a.com/exec" || got[1] != "https://b.com/exec" {
+		t.Errorf("got %v", got)
+	}
+}
+
+func TestParseURLList_EmbeddedNewline(t *testing.T) {
+	// Simulates copy-paste line wrap mid-URL.
+	raw := "https://script.google.com/macros/s/AKfycbxePL0t\n WjKB7/exec,https://script.google.com/macros/s/AKfycbw98e7U/exec"
+	got := ParseURLList(raw)
+	if len(got) != 2 {
+		t.Fatalf("want 2 URLs, got %d: %v", len(got), got)
+	}
+	want := "https://script.google.com/macros/s/AKfycbxePL0tWjKB7/exec"
+	if got[0] != want {
+		t.Errorf("url[0] = %q, want %q", got[0], want)
+	}
+}
+
+func TestParseURLList_AllWhitespaceVariants(t *testing.T) {
+	raw := "https://a.com/exec\t,\r\nhttps://b.com/exec"
+	got := ParseURLList(raw)
+	if len(got) != 2 || got[0] != "https://a.com/exec" || got[1] != "https://b.com/exec" {
+		t.Errorf("got %v", got)
+	}
+}
+
+func TestParseURLList_Empty(t *testing.T) {
+	if got := ParseURLList(""); len(got) != 0 {
+		t.Errorf("expected empty, got %v", got)
+	}
+}
+
+func TestParseURLList_SkipsBlankEntries(t *testing.T) {
+	got := ParseURLList("https://a.com/exec,,https://b.com/exec")
+	if len(got) != 2 {
+		t.Errorf("want 2, got %d: %v", len(got), got)
+	}
+}
+
 // --- compactErr ---
 
 func TestCompactErr_Nil(t *testing.T) {
