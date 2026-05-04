@@ -1,0 +1,41 @@
+# Local config with secrets — never commit
+config.env
+
+# Local CA certs and private keys — never commit
+certs/
+*.key
+*.pem
+
+# Test reports
+reports/
+*.log
+
+# Go build outputs
+/dpi
+/zephyr
+/desktop
+/mhr-vps-relay
+/dist/
+
+# Android signing — never commit
+android/zephyr.jks
+android/keystore.properties
+
+# Android build artifacts — run `make aar` to regenerate
+android/app/libs/*.aar
+android/app/libs/*.jar
+android/app/build/
+android/.gradle/
+android/build/
+
+# Editor / OS noise
+.DS_Store
+*.swp
+.idea/
+*.iml
+
+# Internal files
+CLAUDE.md
+TODO.md
+.codex
+.agents

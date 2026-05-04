@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Zephyr</string>
+    <string name="btn_import_config">Import Config from Clipboard</string>
+    <string name="btn_install_ca">Install CA Certificate</string>
+    <string name="status_stopped">Stopped</string>
+    <string name="status_running">Running — proxy on 127.0.0.1:8085</string>
+    <string name="ca_install_hint">Install once. Required for HTTPS sites.</string>
+    <string name="empty_configs">No saved configs yet.\nImport one from clipboard to get started.</string>
+    <string name="vpn_notification_title">Zephyr active</string>
+    <string name="vpn_notification_text">Proxy running on 127.0.0.1:8085</string>
+    <string name="channel_id">zephyr_vpn</string>
+    <string name="channel_name">VPN Status</string>
+    <string name="error_vpn_permission">VPN permission denied</string>
+</resources>

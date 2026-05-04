@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="background">#F5F5F5</color>
+    <color name="title">#212121</color>
+    <color name="subtitle">#757575</color>
+    <color name="dot_active">#43A047</color>
+    <color name="dot_inactive">#BDBDBD</color>
+</resources>
