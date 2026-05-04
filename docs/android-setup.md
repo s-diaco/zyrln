@@ -108,6 +108,6 @@ Apps that pin their own certificates (some banking/payment apps) will not work t
 
 ## Limitations
 
-- This is a browser-based proxy, not a full VPN — only traffic that goes through the system HTTP proxy is relayed. Apps that bypass the proxy or pin their own certificates are not affected.
 - CA cert installation is a one-time manual step (slightly involved on Samsung/Android 10+)
-- Apps Script has a 6-minute execution limit per request and rate limits on the free tier
+
+For general limitations see [README](../README.md#limitations).

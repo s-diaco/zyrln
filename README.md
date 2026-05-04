@@ -125,6 +125,11 @@ make android-debug  # build debug APK (no keystore needed)
 
 See [docs/android-setup.md](docs/android-setup.md) for first-time Android build setup.
 
+## Limitations
+
+- **Browser-based only** — this is an HTTP proxy, not a full VPN. Only browser traffic and apps that respect the system proxy are relayed. Apps like Instagram, WhatsApp, and Telegram bypass it entirely.
+- **Apps Script quota** — each Google account gets 20,000 relay requests/day. Heavy sites like YouTube can exhaust this quickly. Each user should deploy their own Apps Script.
+
 ## Credits
 
 The domain-fronting technique used here — routing traffic through Google Apps Script with a Cloudflare Worker as the exit relay — was pioneered by [denuitt1/mhr-cfw](https://github.com/denuitt1/mhr-cfw). This project takes that core idea and extends it with a self-hosted VPS exit relay, a full Go rewrite, an Android VPN app, and HTTPS MITM proxy support.
