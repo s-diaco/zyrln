@@ -1,8 +1,9 @@
 package core
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -19,7 +20,7 @@ import (
 // CertAuthority is a local CA used for HTTPS MITM.
 type CertAuthority struct {
 	cert    *x509.Certificate
-	key     *rsa.PrivateKey
+	key     *ecdsa.PrivateKey
 	tlsCert tls.Certificate
 	cache   map[string]*tls.Certificate
 	mu      sync.Mutex
@@ -27,7 +28,7 @@ type CertAuthority struct {
 
 // GenerateCA writes a new local CA cert and key PEM to the given paths.
 func GenerateCA(certPath, keyPath string) error {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return err
 	}
@@ -74,11 +75,15 @@ func GenerateCA(certPath, keyPath string) error {
 		return err
 	}
 
+	keyBytes, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return err
+	}
 	keyFile, err := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
-	if err := pem.Encode(keyFile, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)}); err != nil {
+	if err := pem.Encode(keyFile, &pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes}); err != nil {
 		_ = keyFile.Close()
 		return err
 	}
@@ -109,7 +114,7 @@ func LoadCA(certPath, keyPath string) (*CertAuthority, error) {
 	if keyBlock == nil {
 		return nil, fmt.Errorf("invalid CA key PEM")
 	}
-	key, err := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
+	key, err := x509.ParseECPrivateKey(keyBlock.Bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +141,7 @@ func (ca *CertAuthority) CertForHost(host string) (*tls.Certificate, error) {
 		return cert, nil
 	}
 
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +156,7 @@ func (ca *CertAuthority) CertForHost(host string) (*tls.Certificate, error) {
 		Subject:      pkix.Name{CommonName: host},
 		NotBefore:    now.Add(-time.Hour),
 		NotAfter:     now.AddDate(0, 3, 0),
-		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		KeyUsage:     x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		DNSNames:     []string{host},
 	}
@@ -165,8 +170,13 @@ func (ca *CertAuthority) CertForHost(host string) (*tls.Certificate, error) {
 		return nil, err
 	}
 
+	keyBytes, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return nil, err
+	}
+
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes})
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
 		return nil, err
