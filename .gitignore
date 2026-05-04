@@ -12,13 +12,13 @@ reports/
 
 # Go build outputs
 /dpi
-/zephyr
+/zyrln
 /desktop
 /mhr-vps-relay
 /dist/
 
 # Android signing — never commit
-android/zephyr.jks
+android/zyrln.jks
 android/keystore.properties
 
 # Android build artifacts — run `make aar` to regenerate

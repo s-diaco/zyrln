@@ -3,5 +3,5 @@
 -keep class go.** { *; }
 
 # Keep VPN service and activity (referenced by AndroidManifest)
--keep class com.zephyr.relay.RelayVpnService { *; }
--keep class com.zephyr.relay.MainActivity { *; }
+-keep class com.zyrln.relay.RelayVpnService { *; }
+-keep class com.zyrln.relay.MainActivity { *; }
