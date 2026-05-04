@@ -18,7 +18,7 @@ import (
 
 const maxRelayBody = 16 * 1024 * 1024
 
-var rrCounter atomic.Uint64
+var activeURLIdx atomic.Int64
 
 type workerResponse struct {
 	Status  int               `json:"s"`
@@ -63,9 +63,10 @@ func RelayRequest(
 	return RelayRequestMulti(client, []string{appScriptURL}, frontDomain, authKey, method, targetURL, headers, body, timeout)
 }
 
-// RelayRequestMulti round-robins across appScriptURLs, falling back to the next
-// URL on quota errors (HTML error pages) or network failures.
-// Each call starts at a different URL so load is spread evenly across all URLs.
+// RelayRequestMulti uses a sticky circular failover across appScriptURLs.
+// It sticks to the current URL until it fails (e.g. quota exhausted), then
+// advances to the next one and sticks there. When the last URL fails it wraps
+// back to the first, which will have had its quota reset by then.
 func RelayRequestMulti(
 	client *http.Client,
 	appScriptURLs []string,
@@ -80,12 +81,16 @@ func RelayRequestMulti(
 		return RelayResponse{}, fmt.Errorf("no Apps Script URLs configured")
 	}
 	payload := buildRelayPayload(authKey, method, targetURL, headers, body)
-	start := int(rrCounter.Add(1)-1) % n
+	start := int(activeURLIdx.Load()) % n
 	var lastErr error
 	for i := 0; i < n; i++ {
-		u := appScriptURLs[(start+i)%n]
-		resp, err := tryOneURL(client, u, frontDomain, payload, timeout)
+		idx := (start + i) % n
+		resp, err := tryOneURL(client, appScriptURLs[idx], frontDomain, payload, timeout)
 		if err == nil {
+			if i > 0 {
+				activeURLIdx.Store(int64(idx))
+				fmt.Printf("[relay] quota exhausted on URL %d, switched to URL %d/%d\n", start+1, idx+1, n)
+			}
 			return resp, nil
 		}
 		lastErr = err

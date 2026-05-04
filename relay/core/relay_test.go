@@ -286,9 +286,7 @@ func TestRelayRequestMulti_SingleURL(t *testing.T) {
 	}
 }
 
-func TestRelayRequestMulti_Rotates(t *testing.T) {
-	// In real usage both Apps Script URLs share the same Google IP — rotation
-	// happens at the URL path level. Simulate that with one server, two paths.
+func TestRelayRequestMulti_SticksToWorkingURL(t *testing.T) {
 	var mu sync.Mutex
 	hits := map[string]int{}
 
@@ -304,7 +302,7 @@ func TestRelayRequestMulti_Rotates(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	rrCounter.Store(0)
+	activeURLIdx.Store(0)
 
 	urls := []string{srv.URL + "/s/ID1/exec", srv.URL + "/s/ID2/exec"}
 	for i := 0; i < 4; i++ {
@@ -314,8 +312,51 @@ func TestRelayRequestMulti_Rotates(t *testing.T) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	if hits["/s/ID1/exec"] != 2 || hits["/s/ID2/exec"] != 2 {
-		t.Errorf("expected 2 hits each, got %v", hits)
+	// All 4 requests should hit URL1 since it never fails.
+	if hits["/s/ID1/exec"] != 4 {
+		t.Errorf("expected all 4 hits on ID1, got %v", hits)
+	}
+}
+
+func TestRelayRequestMulti_SwitchesOnFailure(t *testing.T) {
+	var mu sync.Mutex
+	hits := map[string]int{}
+
+	// ID1 always returns quota HTML, ID2 always succeeds.
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		hits[r.URL.Path]++
+		mu.Unlock()
+		if r.URL.Path == "/s/ID1/exec" {
+			w.Header().Set("Content-Type", "text/html")
+			fmt.Fprint(w, "<html>quota exceeded</html>")
+			return
+		}
+		resp := workerResponse{
+			Status: 200,
+			Body:   base64.StdEncoding.EncodeToString([]byte("ok")),
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	activeURLIdx.Store(0)
+
+	urls := []string{srv.URL + "/s/ID1/exec", srv.URL + "/s/ID2/exec"}
+	for i := 0; i < 3; i++ {
+		if _, err := RelayRequestMulti(srv.Client(), urls, srvHost(srv), "k", "GET", "https://x.com", nil, nil, 5*time.Second); err != nil {
+			t.Fatalf("call %d failed: %v", i, err)
+		}
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	// First request: tries ID1 (fails) then ID2 (succeeds) → switches activeIdx to 1.
+	// Requests 2 and 3: start directly at ID2.
+	if hits["/s/ID1/exec"] != 1 {
+		t.Errorf("expected ID1 hit exactly once (first request), got %d", hits["/s/ID1/exec"])
+	}
+	if hits["/s/ID2/exec"] != 3 {
+		t.Errorf("expected ID2 hit 3 times, got %d", hits["/s/ID2/exec"])
 	}
 }
 
