@@ -1,6 +1,7 @@
 package core
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -20,7 +21,7 @@ import (
 // CertAuthority is a local CA used for HTTPS MITM.
 type CertAuthority struct {
 	cert    *x509.Certificate
-	key     *ecdsa.PrivateKey
+	key     crypto.Signer // *ecdsa.PrivateKey (new) or *rsa.PrivateKey (legacy)
 	tlsCert tls.Certificate
 	cache   map[string]*tls.Certificate
 	mu      sync.Mutex
@@ -114,9 +115,21 @@ func LoadCA(certPath, keyPath string) (*CertAuthority, error) {
 	if keyBlock == nil {
 		return nil, fmt.Errorf("invalid CA key PEM")
 	}
-	key, err := x509.ParseECPrivateKey(keyBlock.Bytes)
-	if err != nil {
-		return nil, err
+	var key crypto.Signer
+	switch keyBlock.Type {
+	case "EC PRIVATE KEY":
+		key, err = x509.ParseECPrivateKey(keyBlock.Bytes)
+		if err != nil {
+			return nil, err
+		}
+	case "RSA PRIVATE KEY":
+		rsaKey, rsaErr := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
+		if rsaErr != nil {
+			return nil, rsaErr
+		}
+		key = rsaKey
+	default:
+		return nil, fmt.Errorf("unsupported CA key type: %s", keyBlock.Type)
 	}
 
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
@@ -165,7 +178,7 @@ func (ca *CertAuthority) CertForHost(host string) (*tls.Certificate, error) {
 		template.DNSNames = nil
 	}
 
-	der, err := x509.CreateCertificate(rand.Reader, template, ca.cert, &key.PublicKey, ca.key)
+	der, err := x509.CreateCertificate(rand.Reader, template, ca.cert, key.Public(), ca.key)
 	if err != nil {
 		return nil, err
 	}
