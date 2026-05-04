@@ -125,7 +125,6 @@ See [docs/android-setup.md](docs/android-setup.md) for the full build and setup 
 make desktop        # build desktop CLI binary
 make proxy          # start desktop proxy (reads config.env)
 make test           # smoke test the full relay chain
-make aar            # build Android .aar (requires gomobile)
 make android        # build signed release APK (requires keystore + Android SDK)
 make android-debug  # build debug APK (no keystore needed)
 ```

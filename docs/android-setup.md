@@ -30,11 +30,11 @@ go install golang.org/x/mobile/cmd/gomobile@latest
 gomobile init
 ```
 
-Build everything:
+Build the APK:
 
 ```bash
 make keystore   # generate signing keystore (run once — creates android/zyrln.jks with default credentials)
-make android    # build signed release APK
+make android    # builds the Go AAR and the signed release APK
 # APK → android/app/build/outputs/apk/release/zyrln-1.2.apk
 ```
 

@@ -11,7 +11,7 @@ export ANDROID_HOME
 export GOTOOLCHAIN
 export GOFLAGS
 
-.PHONY: all desktop proxy test aar android android-debug keystore install clean
+.PHONY: all desktop proxy test android android-debug keystore install clean
 
 all: desktop
 
@@ -26,18 +26,6 @@ proxy:
 ## Smoke test the full relay chain.
 test:
 	GOCACHE=$(GOCACHE) go run ./platforms/desktop/ -relay-fetch-url 'https://www.gstatic.com/generate_204'
-
-## Build the gomobile AAR for Android.
-## Requires: go install golang.org/x/mobile/cmd/gomobile@latest && gomobile init
-aar:
-	@echo "Building gomobile AAR..."
-	@mkdir -p android/app/libs
-	PATH=$(PATH):$(HOME)/go/bin GOCACHE=$(GOCACHE) gomobile bind \
-		-target android \
-		-androidapi 21 \
-		-o $(AAR_OUT) \
-		zyrln/platforms/mobile
-	@echo "AAR → $(AAR_OUT)"
 
 ## Generate a release signing keystore (run once before `make android`).
 ## Requires: keytool (comes with the JDK)
@@ -57,13 +45,27 @@ keystore:
 	@echo "Keystore → android/zyrln.jks"
 	@echo "Properties → android/keystore.properties"
 
-## Build the release APK (requires aar + keystore first).
-android: aar
+## Build the release APK (requires keystore first).
+android:
+	@echo "Building gomobile AAR..."
+	@mkdir -p android/app/libs
+	PATH=$(PATH):$(HOME)/go/bin GOCACHE=$(GOCACHE) gomobile bind \
+		-target android \
+		-androidapi 21 \
+		-o $(AAR_OUT) \
+		zyrln/platforms/mobile
 	cd android && ./gradlew assembleRelease
 	@echo "APK → $(APK_RELEASE)"
 
 ## Build a debug APK (no keystore needed).
-android-debug: aar
+android-debug:
+	@echo "Building gomobile AAR..."
+	@mkdir -p android/app/libs
+	PATH=$(PATH):$(HOME)/go/bin GOCACHE=$(GOCACHE) gomobile bind \
+		-target android \
+		-androidapi 21 \
+		-o $(AAR_OUT) \
+		zyrln/platforms/mobile
 	cd android && ./gradlew assembleDebug
 	@echo "APK → $(APK_DEBUG)"
 
