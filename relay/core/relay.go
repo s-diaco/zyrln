@@ -36,8 +36,13 @@ func NewHTTPClient(timeout time.Duration) *http.Client {
 	return &http.Client{
 		Timeout: timeout,
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
-			DialContext:     (&net.Dialer{Timeout: timeout}).DialContext,
+			TLSClientConfig:     &tls.Config{MinVersion: tls.VersionTLS12},
+			DialContext:         (&net.Dialer{Timeout: 15 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+			MaxIdleConns:        64,
+			MaxIdleConnsPerHost: 8,
+			IdleConnTimeout:     120 * time.Second,
+			TLSHandshakeTimeout: 15 * time.Second,
+			ForceAttemptHTTP2:   true,
 		},
 	}
 }
