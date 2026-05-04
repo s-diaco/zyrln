@@ -40,6 +40,10 @@ TLS connections go to Google's IP ranges. The encrypted `Host` header targets yo
 
 ### Prerequisites
 
+**Required tools:**
+- Go 1.25+
+- `make`
+
 Generate a secret auth key. You will use it in every component:
 
 ```bash

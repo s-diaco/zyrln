@@ -17,23 +17,23 @@ The app uses Android's `VpnService` to set a system-wide HTTP proxy pointing to 
 
 - Apps Script relay deployed (see [README](../README.md))
 - VPS relay running (see [docs/vps-setup.md](vps-setup.md))
-- Android SDK installed with NDK
-- Go 1.25+ with gomobile
+- Go 1.25+
+- Android SDK with NDK (install NDK via Android Studio: SDK Manager → SDK Tools → NDK (Side by side))
+- `ANDROID_HOME` environment variable pointing to your SDK (e.g. `export ANDROID_HOME=~/Android/Sdk`)
 
 ## Build
 
-Install build tools once:
+Install gomobile once:
 
 ```bash
 go install golang.org/x/mobile/cmd/gomobile@latest
 gomobile init
-export ANDROID_HOME=~/Android/Sdk   # adjust to your SDK path
 ```
 
 Build everything:
 
 ```bash
-make keystore   # generate signing keystore (run once)
+make keystore   # generate signing keystore (run once — creates android/zyrln.jks with default credentials)
 make android    # build signed release APK
 # APK → android/app/build/outputs/apk/release/zyrln-1.2.apk
 ```
