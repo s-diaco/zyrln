@@ -167,6 +167,35 @@ class MainActivity : AppCompatActivity() {
                 if (isActive) setTypeface(null, Typeface.BOLD)
             }
 
+            val urlList = url.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+            val scriptsBadge = TextView(this).apply {
+                visibility = if (urlList.size > 1) View.VISIBLE else View.GONE
+                text = "${urlList.size} scripts"
+                textSize = 11f
+                setTextColor(ContextCompat.getColor(this@MainActivity, android.R.color.white))
+                setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.dot_active))
+                setPadding((6 * dp).toInt(), (2 * dp).toInt(), (6 * dp).toInt(), (2 * dp).toInt())
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { marginEnd = (8 * dp).toInt() }
+            }
+            scriptsBadge.setOnClickListener {
+                val lines = urlList.mapIndexed { i, u ->
+                    val id = try {
+                        val parts = java.net.URI(u).path.split("/")
+                        val raw = parts.getOrNull(parts.indexOf("s") + 1) ?: u
+                        if (raw.length >= 6) "…${raw.takeLast(12)}" else raw
+                    } catch (e: Exception) { u }
+                    "${i + 1}. $id"
+                }.joinToString("\n")
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Apps Script URLs (${urlList.size})")
+                    .setMessage(lines)
+                    .setPositiveButton("OK", null)
+                    .show()
+            }
+
             val action = TextView(this).apply {
                 text = if (isActive && running) "Disconnect" else "Connect"
                 textSize = 13f
@@ -184,6 +213,7 @@ class MainActivity : AppCompatActivity() {
 
             row.addView(dot)
             row.addView(label)
+            row.addView(scriptsBadge)
             row.addView(action)
             row.addView(deleteBtn)
             card.addView(row)
@@ -295,18 +325,22 @@ class MainActivity : AppCompatActivity() {
         prefs.edit().putString("configs", arr.toString()).apply()
     }
 
-    private fun configLabel(url: String): String = try {
-        val uri = URI(url)
-        // For Apps Script URLs extract the script ID segment and show its tail.
-        // Format: /macros/s/SCRIPT_ID/exec
-        if (uri.host == "script.google.com") {
-            val parts = uri.path.split("/")
-            val id = parts.getOrNull(parts.indexOf("s") + 1) ?: ""
-            if (id.length >= 6) "Script …${id.takeLast(8)}" else "Apps Script"
-        } else {
-            uri.host?.removePrefix("www.") ?: url
-        }
-    } catch (e: Exception) { url }
+    private fun configLabel(url: String): String {
+        val urls = url.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        val base = try {
+            val uri = URI(urls.first())
+            // For Apps Script URLs extract the script ID segment and show its tail.
+            // Format: /macros/s/SCRIPT_ID/exec
+            if (uri.host == "script.google.com") {
+                val parts = uri.path.split("/")
+                val id = parts.getOrNull(parts.indexOf("s") + 1) ?: ""
+                if (id.length >= 6) "Script …${id.takeLast(8)}" else "Apps Script"
+            } else {
+                uri.host?.removePrefix("www.") ?: urls.first()
+            }
+        } catch (e: Exception) { urls.first() }
+        return base
+    }
 
     private fun installCACert() {
         val certDir = File(filesDir, "certs")
