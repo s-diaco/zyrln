@@ -278,8 +278,8 @@ class MainActivity : AppCompatActivity() {
         }
         try {
             val json = JSONObject(text)
-            val url = json.getString("url")
-            val key = json.getString("key")
+            val url = json.getString("url").replace(Regex("[\\s]"), "")
+            val key = json.getString("key").trim()
             if (url.isEmpty() || key.isEmpty()) throw JSONException("empty fields")
             if (saveConfig(url, key)) {
                 refreshList()
