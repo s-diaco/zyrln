@@ -14,6 +14,15 @@ your device
 
 TLS connections go to Google's IP ranges. The encrypted `Host` header targets your Apps Script deployment. From a DPI perspective the traffic is indistinguishable from normal Google traffic.
 
+## Features
+
+- **Domain-fronting via Google**: all traffic exits from Google IP ranges — indistinguishable from normal Google traffic to DPI filters
+- **Full HTTPS support**: local MITM proxy terminates TLS and re-encrypts, so blocked HTTPS sites work transparently
+- **Android VPN app**: one-tap connect routes all phone traffic through the relay without root or per-app config
+- **Self-hosted exit relay**: run your own VPS exit node (or use a Cloudflare Worker) — no third-party relay services
+- **Multiple saved configs**: store and switch between relay configs on Android with a single tap
+- **Desktop + Android**: the same relay core powers both the desktop CLI proxy and the Android app via gomobile
+
 ## Components
 
 | Component | Path | Role |

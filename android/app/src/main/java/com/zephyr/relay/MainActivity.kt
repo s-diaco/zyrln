@@ -58,9 +58,12 @@ class MainActivity : AppCompatActivity() {
 
     private val stopReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            activeUrl = null
-            activeKey = null
-            updateUI(running = false)
+            if (activeUrl == null) {
+                // genuine stop — no config switch in progress
+                activeKey = null
+                updateUI(running = false)
+            }
+            // activeUrl != null means connectConfig() already set the next config; don't clear it
         }
     }
 

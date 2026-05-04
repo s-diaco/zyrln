@@ -156,9 +156,9 @@ func handleRelay(w http.ResponseWriter, r *http.Request, client *http.Client, ke
 	}
 
 	headers := map[string]string{}
-	for key, values := range resp.Header {
+	for hk, values := range resp.Header {
 		if len(values) > 0 {
-			headers[strings.ToLower(key)] = values[0]
+			headers[strings.ToLower(hk)] = values[0]
 		}
 	}
 
