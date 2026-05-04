@@ -28,6 +28,16 @@ TLS connections go to Google's IP ranges. The encrypted `Host` header targets yo
 
 ## Quick Start
 
+### 0. Generate your auth key
+
+You need a secret key that only your Apps Script and your client know. Generate one:
+
+```bash
+openssl rand -base64 32
+```
+
+Keep this — you'll use it in step 1 (Apps Script) and step 3 (config.env / Android app).
+
 ### 1. Deploy the Apps Script relay
 
 1. Open [script.google.com](https://script.google.com) → New project
@@ -35,9 +45,9 @@ TLS connections go to Google's IP ranges. The encrypted `Host` header targets yo
 3. Set these constants at the top:
 
 ```js
-const AUTH_KEY      = "your-long-random-secret";   // openssl rand -base64 32
+const AUTH_KEY       = "YOUR_KEY_FROM_STEP_0";
 const EXIT_RELAY_URL = "http://YOUR_VPS_IP:8787/relay";
-const EXIT_RELAY_KEY = "";                          // optional extra key for the VPS
+const EXIT_RELAY_KEY = "";   // optional extra key for the VPS relay
 ```
 
 4. Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone

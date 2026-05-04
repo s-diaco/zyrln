@@ -1,5 +1,7 @@
 # Contributing
 
+For a high-level overview of what each component does, see the [Components table in the README](../README.md#components).
+
 ## Project Structure
 
 ```
@@ -111,8 +113,4 @@ Never commit:
 - `certs/` — contains the local CA private key
 - Any file containing `AUTH_KEY` or relay keys
 
-These are covered by `.gitignore`. Generate your own auth key with:
-
-```bash
-openssl rand -base64 32
-```
+These are covered by `.gitignore`. See [Key Generation in the README](../README.md#0-generate-your-auth-key) for how to generate a key.
