@@ -21,6 +21,11 @@ desktop:
 
 ## Start the desktop relay proxy (reads config.env).
 proxy:
+	@if [ ! -f certs/zyrln-ca.pem ]; then \
+		echo "CA certificate not found. Run this first:"; \
+		echo "  make desktop && ./zyrln -init-ca"; \
+		exit 1; \
+	fi
 	GOCACHE=$(GOCACHE) go run ./platforms/desktop/ -serve-proxy
 
 ## Smoke test the full relay chain.
