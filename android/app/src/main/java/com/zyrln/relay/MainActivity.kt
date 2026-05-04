@@ -170,29 +170,22 @@ class MainActivity : AppCompatActivity() {
             }
 
             val urlList = url.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-            val scriptsBadge = TextView(this).apply {
+            val infoBtn = android.widget.ImageButton(this).apply {
                 visibility = if (urlList.size > 1) View.VISIBLE else View.GONE
-                text = "${urlList.size} scripts"
-                textSize = 11f
-                setTextColor(ContextCompat.getColor(this@MainActivity, android.R.color.white))
-                setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.dot_active))
-                setPadding((6 * dp).toInt(), (2 * dp).toInt(), (6 * dp).toInt(), (2 * dp).toInt())
+                setImageDrawable(ContextCompat.getDrawable(this@MainActivity, android.R.drawable.ic_menu_info_details))
+                background = null
                 layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { marginEnd = (8 * dp).toInt() }
+                    (32 * dp).toInt(), (32 * dp).toInt()
+                ).apply { marginEnd = (4 * dp).toInt() }
             }
-            scriptsBadge.setOnClickListener {
+            infoBtn.setOnClickListener {
                 val lines = urlList.mapIndexed { i, u ->
-                    val id = try {
-                        val parts = java.net.URI(u).path.split("/")
-                        val raw = parts.getOrNull(parts.indexOf("s") + 1) ?: u
-                        if (raw.length >= 6) "…${raw.takeLast(12)}" else raw
-                    } catch (e: Exception) { u }
-                    "${i + 1}. $id"
+                    val id = u.substringAfter("/macros/s/", "").substringBefore("/")
+                    val short = if (id.length >= 6) "…${id.takeLast(10)}" else u.substringAfter("://").substringBefore("/")
+                    "${i + 1}. $short"
                 }.joinToString("\n")
                 AlertDialog.Builder(this@MainActivity)
-                    .setTitle("Apps Script URLs (${urlList.size})")
+                    .setTitle("${urlList.size} Apps Script URLs")
                     .setMessage(lines)
                     .setPositiveButton("OK", null)
                     .show()
@@ -215,7 +208,7 @@ class MainActivity : AppCompatActivity() {
 
             row.addView(dot)
             row.addView(label)
-            row.addView(scriptsBadge)
+            row.addView(infoBtn)
             row.addView(action)
             row.addView(deleteBtn)
             card.addView(row)
@@ -328,25 +321,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun configLabel(url: String): String {
-        val urls = url.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        val first = urls.firstOrNull() ?: return url
-        return try {
-            val uri = URI(first)
-            if (uri.host == "script.google.com") {
-                val parts = uri.path.split("/")
-                val id = parts.getOrNull(parts.indexOf("s") + 1) ?: ""
-                wordLabel(id)
-            } else {
-                uri.host?.removePrefix("www.") ?: first
-            }
-        } catch (e: Exception) { first }
+        val first = url.split(",").firstOrNull()?.trim() ?: return url
+        val id = first.substringAfter("/macros/s/", "").substringBefore("/")
+        if (id.length >= 6) return wordLabel(id)
+        return first.substringAfter("://").substringBefore("/").removePrefix("www.")
     }
 
     private fun wordLabel(seed: String): String {
         val adj = listOf("swift","bold","quiet","bright","pure","sharp","calm","free")
         val noun = listOf("relay","bridge","tunnel","gate","link","path","pass","line")
-        val h = seed.fold(0L) { acc, c -> acc * 31 + c.code }
-        return "${adj[(h % adj.size + adj.size).toInt() % adj.size]} ${noun[(h / adj.size % noun.size + noun.size).toInt() % noun.size]}"
+        var h = 0L
+        for (c in seed) h = h * 31 + c.code
+        val ai = ((h % adj.size) + adj.size).toInt() % adj.size
+        val ni = ((h / adj.size % noun.size) + noun.size).toInt() % noun.size
+        return "${adj[ai]} ${noun[ni]}"
     }
 
     private fun installCACert() {
