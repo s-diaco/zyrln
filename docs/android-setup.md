@@ -108,6 +108,12 @@ Apps that pin their own certificates (some banking/payment apps) will not work t
 
 ## Limitations
 
-- Requires CA cert installation (one-time, manual step on Samsung/Android 10+)
-- Apps that ignore the system proxy or use certificate pinning bypass the relay
+**What works:**
+- Chrome, Firefox, and any browser
+- Most apps that use Android's system proxy (news, social readers, WebView-based apps)
+
+**What doesn't work:**
+- **Instagram, WhatsApp, Telegram, banking apps** — these either pin their own certificates or bypass the system proxy entirely. Certificate pinning means they reject your local CA and the connection fails. For these apps you need a full VPN tunnel (WireGuard, OpenVPN), not an HTTP proxy.
+- **QUIC/UDP traffic** — the proxy is TCP only. Apps that use QUIC (YouTube sometimes, some Google apps) will fall back to TCP automatically, but pure UDP traffic bypasses the proxy.
 - Apps Script has a 6-minute execution limit per request and rate limits on the free tier
+- CA cert installation is a one-time manual step (slightly involved on Samsung/Android 10+)
