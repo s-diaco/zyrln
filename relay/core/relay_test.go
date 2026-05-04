@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -269,7 +270,7 @@ func TestRelayRequest_ServerError(t *testing.T) {
 
 // --- RelayRequestMulti ---
 
-func TestRelayRequestMulti_FirstURLSucceeds(t *testing.T) {
+func TestRelayRequestMulti_SingleURL(t *testing.T) {
 	good := mockAppsScriptServer(t, 200, "ok")
 	defer good.Close()
 
@@ -282,6 +283,39 @@ func TestRelayRequestMulti_FirstURLSucceeds(t *testing.T) {
 	}
 	if string(resp.Body) != "ok" {
 		t.Errorf("body = %q, want ok", resp.Body)
+	}
+}
+
+func TestRelayRequestMulti_Rotates(t *testing.T) {
+	// In real usage both Apps Script URLs share the same Google IP — rotation
+	// happens at the URL path level. Simulate that with one server, two paths.
+	var mu sync.Mutex
+	hits := map[string]int{}
+
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		hits[r.URL.Path]++
+		mu.Unlock()
+		resp := workerResponse{
+			Status: 200,
+			Body:   base64.StdEncoding.EncodeToString([]byte("ok")),
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	rrCounter.Store(0)
+
+	urls := []string{srv.URL + "/s/ID1/exec", srv.URL + "/s/ID2/exec"}
+	for i := 0; i < 4; i++ {
+		if _, err := RelayRequestMulti(srv.Client(), urls, srvHost(srv), "k", "GET", "https://x.com", nil, nil, 5*time.Second); err != nil {
+			t.Fatalf("call %d failed: %v", i, err)
+		}
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if hits["/s/ID1/exec"] != 2 || hits["/s/ID2/exec"] != 2 {
+		t.Errorf("expected 2 hits each, got %v", hits)
 	}
 }
 

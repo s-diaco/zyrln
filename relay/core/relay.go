@@ -12,10 +12,13 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
 const maxRelayBody = 16 * 1024 * 1024
+
+var rrCounter atomic.Uint64
 
 type workerResponse struct {
 	Status  int               `json:"s"`
@@ -60,8 +63,9 @@ func RelayRequest(
 	return RelayRequestMulti(client, []string{appScriptURL}, frontDomain, authKey, method, targetURL, headers, body, timeout)
 }
 
-// RelayRequestMulti tries each Apps Script URL in order, moving to the next on quota
-// errors (HTML error pages) or network failures. Returns the first successful response.
+// RelayRequestMulti round-robins across appScriptURLs, falling back to the next
+// URL on quota errors (HTML error pages) or network failures.
+// Each call starts at a different URL so load is spread evenly across all URLs.
 func RelayRequestMulti(
 	client *http.Client,
 	appScriptURLs []string,
@@ -71,12 +75,15 @@ func RelayRequestMulti(
 	body []byte,
 	timeout time.Duration,
 ) (RelayResponse, error) {
-	if len(appScriptURLs) == 0 {
+	n := len(appScriptURLs)
+	if n == 0 {
 		return RelayResponse{}, fmt.Errorf("no Apps Script URLs configured")
 	}
 	payload := buildRelayPayload(authKey, method, targetURL, headers, body)
+	start := int(rrCounter.Add(1)-1) % n
 	var lastErr error
-	for _, u := range appScriptURLs {
+	for i := 0; i < n; i++ {
+		u := appScriptURLs[(start+i)%n]
 		resp, err := tryOneURL(client, u, frontDomain, payload, timeout)
 		if err == nil {
 			return resp, nil
