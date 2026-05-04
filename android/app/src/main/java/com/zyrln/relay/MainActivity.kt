@@ -345,8 +345,8 @@ class MainActivity : AppCompatActivity() {
     private fun wordLabel(seed: String): String {
         val adj = listOf("swift","bold","quiet","bright","pure","sharp","calm","free")
         val noun = listOf("relay","bridge","tunnel","gate","link","path","pass","line")
-        val h = seed.fold(0) { acc, c -> acc * 31 + c.code }
-        return "${adj[Math.abs(h) % adj.size]} ${noun[Math.abs(h / adj.size) % noun.size]}"
+        val h = seed.fold(0L) { acc, c -> acc * 31 + c.code }
+        return "${adj[(h % adj.size + adj.size).toInt() % adj.size]} ${noun[(h / adj.size % noun.size + noun.size).toInt() % noun.size]}"
     }
 
     private fun installCACert() {
