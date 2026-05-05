@@ -407,11 +407,14 @@ func TestServeSSEKeepalive_SendsHeadersAndKeepalive(t *testing.T) {
 
 func TestServeSSEKeepalive_NoRelayCallMade(t *testing.T) {
 	var callCount atomic.Int32
-	// This server counts calls and returns valid relay responses.
-	srv := fakeAppScript(t, "ok", 200)
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount.Add(1)
+		json.NewEncoder(w).Encode(workerResponse{
+			Status: 200,
+			Body:   base64.StdEncoding.EncodeToString([]byte("ok")),
+		})
+	}))
 	defer srv.Close()
-
-	coal := fakeCoalescer(t, srv)
 
 	// serveSSEKeepalive must not touch the relay at all.
 	client, server := net.Pipe()
@@ -425,10 +428,14 @@ func TestServeSSEKeepalive_NoRelayCallMade(t *testing.T) {
 		t.Errorf("relay called %d times, want 0 for SSE keepalive path", n)
 	}
 
-	// A normal request on the same coalescer must still go through the relay.
+	// A normal request through the coalescer must still reach the relay.
+	coal := fakeCoalescer(t, srv)
 	_, err := coal.Submit("GET", "http://example.com/", map[string]string{}, nil)
 	if err != nil {
 		t.Fatalf("normal request failed: %v", err)
+	}
+	if n := int(callCount.Load()); n == 0 {
+		t.Error("expected relay to be called for a normal GET request")
 	}
 }
 

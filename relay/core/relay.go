@@ -231,9 +231,13 @@ func (c *Coalescer) Submit(method, targetURL string, headers map[string]string, 
 	if ttl := cacheableMaxAge(method, headers, r.resp.Headers, r.resp.Status); ttl > 0 {
 		bodyCopy := make([]byte, len(r.resp.Body))
 		copy(bodyCopy, r.resp.Body)
+		headersCopy := make(map[string]string, len(r.resp.Headers))
+		for k, v := range r.resp.Headers {
+			headersCopy[k] = v
+		}
 		c.cache.set(targetURL, &cacheEntry{
 			status:  r.resp.Status,
-			headers: r.resp.Headers,
+			headers: headersCopy,
 			body:    bodyCopy,
 			expiry:  time.Now().Add(ttl),
 		})
