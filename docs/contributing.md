@@ -11,7 +11,7 @@ zyrln/
 │   │   ├── main.go     # CLI flags, probe runner, relay-fetch, proxy launcher
 │   │   └── main_test.go
 │   └── mobile/         # gomobile bindings for Android
-│       └── mobile.go   # Exported API: Start, Stop, IsRunning, GenerateCA
+│       └── mobile.go   # Exported API: Start, Stop, IsRunning, LastError, GenerateCA
 │
 ├── relay/
 │   ├── core/           # Shared relay logic (imported by desktop and mobile)

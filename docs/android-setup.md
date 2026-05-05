@@ -35,7 +35,7 @@ Build the APK:
 ```bash
 make keystore   # generate signing keystore (run once — creates android/zyrln.jks with default credentials)
 make android    # builds the Go AAR and the signed release APK
-# APK → android/app/build/outputs/apk/release/zyrln-1.2.apk
+# APK → android/app/build/outputs/apk/release/zyrln-1.4.0.apk
 ```
 
 Or a debug build (no keystore needed):

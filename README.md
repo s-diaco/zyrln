@@ -69,7 +69,7 @@ Deploy `relay/cloudflare/worker.js` as a Worker. See **[docs/cloudflare-setup.md
 
 ### 3. Set up the desktop proxy
 
-**Prerequisites:** Go 1.21+, `make`. On Windows, use **Git Bash** — cmd.exe and PowerShell are not supported.
+**Prerequisites:** Go 1.25+, `make`. On Windows, use **Git Bash** — cmd.exe and PowerShell are not supported.
 
 Create `config.env` (gitignored):
 
