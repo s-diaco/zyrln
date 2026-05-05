@@ -64,7 +64,6 @@ Tests use only the standard library, no external test frameworks.
 
 ```bash
 make desktop          # build ./zyrln CLI binary
-make aar              # build Android .aar (requires gomobile + NDK)
 make android-debug    # build debug APK (no keystore needed)
 make android          # build signed release APK (requires keystore)
 ```
