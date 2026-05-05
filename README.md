@@ -138,7 +138,7 @@ See [docs/android-setup.md](docs/android-setup.md) for first-time Android build 
 
 ## Credits
 
-The domain-fronting technique used here, routing traffic through Google Apps Script with a Cloudflare Worker as the exit relay, was pioneered by [denuitt1/mhr-cfw](https://github.com/denuitt1/mhr-cfw). This project takes that core idea and extends it with a self-hosted VPS exit relay, a full Go rewrite, an Android VPN app, and HTTPS MITM proxy support.
+The domain-fronting technique used here was pioneered by [denuitt1/mhr-cfw](https://github.com/denuitt1/mhr-cfw).
 
 Developed with the assistance of [Claude](https://claude.ai) by Anthropic.
 
