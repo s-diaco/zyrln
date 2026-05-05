@@ -42,6 +42,7 @@ func StartProxy(listenAddr string, appScriptURLs []string, frontDomain, authKey 
 
 func listenAndServeProxy(listenAddr string, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) (*http.Server, error) {
 	coal := NewCoalescer(client, appScriptURLs, frontDomain, authKey, timeout)
+	coal.Warmup()
 	return &http.Server{
 		Addr: listenAddr,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -139,6 +140,14 @@ func handleConnect(w http.ResponseWriter, r *http.Request, coal *Coalescer, ca *
 			return
 		}
 
+		// SSE connections are persistent streams that Apps Script cannot relay.
+		// Respond immediately and keep the connection alive with comment keepalives
+		// so the browser never detects a dead stream and triggers a page refresh.
+		if strings.Contains(req.Header.Get("Accept"), "text/event-stream") {
+			serveSSEKeepalive(tlsConn)
+			return
+		}
+
 		body, err := io.ReadAll(io.LimitReader(req.Body, 8*1024*1024))
 		_ = req.Body.Close()
 		if err != nil {
@@ -219,6 +228,24 @@ func skipRequestHeader(key string) bool {
 		return true
 	}
 	return false
+}
+
+// serveSSEKeepalive handles a Server-Sent Events request by holding the
+// connection open and writing SSE comment keepalives every 20s. No relay call
+// is made, so no Apps Script quota is used. The browser sees a live stream
+// and does not trigger a page refresh when the real SSE endpoint is unreachable.
+func serveSSEKeepalive(conn net.Conn) {
+	_, err := fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\n\r\n")
+	if err != nil {
+		return
+	}
+	ticker := time.NewTicker(20 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		if _, err := fmt.Fprintf(conn, ": keepalive\n\n"); err != nil {
+			return
+		}
+	}
 }
 
 func skipResponseHeader(key string) bool {

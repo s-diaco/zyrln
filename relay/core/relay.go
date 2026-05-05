@@ -40,6 +40,22 @@ func ParseURLList(raw string) []string {
 
 var activeURLIdx atomic.Int64
 
+// perURLTimeout splits the total timeout budget evenly across n URLs so that
+// a single slow or unreachable URL does not burn the whole deadline before
+// failover kicks in. A minimum of 8s is enforced so each attempt has enough
+// time to complete a normal relay call.
+func perURLTimeout(total time.Duration, n int) time.Duration {
+	if n <= 1 {
+		return total
+	}
+	per := total / time.Duration(n)
+	const min = 8 * time.Second
+	if per < min {
+		return min
+	}
+	return per
+}
+
 type workerResponse struct {
 	Status  int               `json:"s"`
 	Headers map[string]string `json:"h"`
@@ -102,10 +118,11 @@ func RelayRequestMulti(
 	}
 	payload := buildRelayPayload(authKey, method, targetURL, headers, body)
 	start := int(activeURLIdx.Load()) % n
+	urlTimeout := perURLTimeout(timeout, n)
 	var lastErr error
 	for i := 0; i < n; i++ {
 		idx := (start + i) % n
-		resp, err := tryOneURL(client, appScriptURLs[idx], frontDomain, payload, timeout)
+		resp, err := tryOneURL(client, appScriptURLs[idx], frontDomain, payload, urlTimeout)
 		if err == nil {
 			if i > 0 {
 				activeURLIdx.Store(int64(idx))
@@ -130,6 +147,7 @@ type Coalescer struct {
 	window        time.Duration
 	maxBatch      int
 	ch            chan *coalescerItem
+	cache         *responseCache
 }
 
 type coalescerItem struct {
@@ -173,13 +191,30 @@ func NewCoalescer(client *http.Client, appScriptURLs []string, frontDomain, auth
 		window:        15 * time.Millisecond,
 		maxBatch:      10,
 		ch:            make(chan *coalescerItem, 512),
+		cache:         newResponseCache(),
 	}
 	go c.run()
 	return c
 }
 
+// Warmup fires a background relay request to pre-warm the Apps Script instance
+// so the first real request does not pay the cold-start cost.
+func (c *Coalescer) Warmup() {
+	go func() {
+		_, _ = c.Submit("HEAD", "https://www.google.com/generate_204", map[string]string{}, nil)
+	}()
+}
+
 // Submit queues a relay request and blocks until the response is ready.
+// GET responses that carry a positive Cache-Control max-age are served from an
+// in-memory cache on subsequent calls, bypassing the relay entirely.
 func (c *Coalescer) Submit(method, targetURL string, headers map[string]string, body []byte) (RelayResponse, error) {
+	if method == "GET" && len(body) == 0 {
+		if e := c.cache.get(targetURL); e != nil {
+			return RelayResponse{Status: e.status, Headers: e.headers, Body: e.body}, nil
+		}
+	}
+
 	item := &coalescerItem{
 		method:    method,
 		targetURL: targetURL,
@@ -189,15 +224,39 @@ func (c *Coalescer) Submit(method, targetURL string, headers map[string]string, 
 	}
 	c.ch <- item
 	r := <-item.result
+	if r.err != nil {
+		return r.resp, r.err
+	}
+
+	if ttl := cacheableMaxAge(method, headers, r.resp.Headers, r.resp.Status); ttl > 0 {
+		bodyCopy := make([]byte, len(r.resp.Body))
+		copy(bodyCopy, r.resp.Body)
+		c.cache.set(targetURL, &cacheEntry{
+			status:  r.resp.Status,
+			headers: r.resp.Headers,
+			body:    bodyCopy,
+			expiry:  time.Now().Add(ttl),
+		})
+	}
+
 	return r.resp, r.err
 }
+
+const burstWindow = 40 * time.Millisecond
 
 func (c *Coalescer) run() {
 	for {
 		first := <-c.ch
 		batch := []*coalescerItem{first}
 
-		timer := time.NewTimer(c.window)
+		// If requests are already queued behind the first one, widen the
+		// collection window so the whole burst is captured in one batch.
+		w := c.window
+		if len(c.ch) > 0 {
+			w = burstWindow
+		}
+
+		timer := time.NewTimer(w)
 	collect:
 		for len(batch) < c.maxBatch {
 			select {
@@ -245,11 +304,12 @@ func (c *Coalescer) flush(batch []*coalescerItem) {
 
 	n := len(c.appScriptURLs)
 	start := int(activeURLIdx.Load()) % n
+	urlTimeout := perURLTimeout(c.timeout, n)
 	var raw []byte
 	var lastErr error
 	for i := 0; i < n; i++ {
 		idx := (start + i) % n
-		raw, lastErr = appsScriptRoundTrip(c.client, c.appScriptURLs[idx], c.frontDomain, string(payload), c.timeout)
+		raw, lastErr = appsScriptRoundTrip(c.client, c.appScriptURLs[idx], c.frontDomain, string(payload), urlTimeout)
 		if lastErr == nil {
 			if i > 0 {
 				activeURLIdx.Store(int64(idx))
