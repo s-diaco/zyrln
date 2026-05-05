@@ -14,6 +14,15 @@ your device
 
 TLS connections go to Google's IP ranges. The encrypted `Host` header targets your Apps Script deployment. From a DPI perspective the traffic is indistinguishable from normal Google traffic.
 
+## Features
+
+- **Undetectable by DPI** — all traffic exits from Google's IP ranges and is indistinguishable from normal Google traffic. There is no VPN fingerprint, no unusual port, and no dedicated server IP to block.
+- **Request coalescing** — concurrent browser requests are batched into a single Apps Script call. A page load that fires 30 requests uses 1–3 Apps Script executions instead of 30, dramatically extending daily quota.
+- **In-proxy response cache** — static assets (JS, CSS, fonts, images) are served from memory on repeat visits. Cached responses skip the relay entirely, making subsequent page loads significantly faster.
+- **Multi-URL quota failover** — configure multiple Apps Script deployments across different Google accounts. The relay sticks to the first URL until quota runs out, then switches transparently with no reconnection or dropped requests.
+- **Full HTTPS support** — the proxy performs local TLS termination so blocked HTTPS sites work transparently. No plaintext data leaves the device.
+- **Android VPN — no root** — one tap routes all browser traffic through the relay at the system level. No per-app configuration, no ADB, no root required.
+
 ## Before You Start
 
 **The pre-built binaries and APK do not work out of the box.** Zyrln is a client — it has no built-in relay. You must set up your own relay chain before anything works:
