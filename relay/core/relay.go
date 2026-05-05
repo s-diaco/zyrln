@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -115,6 +116,187 @@ func RelayRequestMulti(
 		lastErr = err
 	}
 	return RelayResponse{}, lastErr
+}
+
+// Coalescer batches concurrent relay requests into a single Apps Script call
+// using the existing doBatch_ / fetchAll support in Code.gs.
+// Requests that arrive within window of each other are grouped (up to maxBatch).
+type Coalescer struct {
+	client        *http.Client
+	appScriptURLs []string
+	frontDomain   string
+	authKey       string
+	timeout       time.Duration
+	window        time.Duration
+	maxBatch      int
+	ch            chan *coalescerItem
+}
+
+type coalescerItem struct {
+	method    string
+	targetURL string
+	headers   map[string]string
+	body      []byte
+	result    chan coalescerResult
+}
+
+type coalescerResult struct {
+	resp RelayResponse
+	err  error
+}
+
+type batchPayloadItem struct {
+	Method    string            `json:"m"`
+	URL       string            `json:"u"`
+	Headers   map[string]string `json:"h"`
+	Body      string            `json:"b,omitempty"`
+	Redirect  bool              `json:"r"`
+}
+
+type batchEnvelope struct {
+	Key   string             `json:"k"`
+	Items []batchPayloadItem `json:"q"`
+}
+
+type batchResponseEnvelope struct {
+	Items []workerResponse `json:"q"`
+}
+
+// NewCoalescer creates and starts a request coalescer.
+func NewCoalescer(client *http.Client, appScriptURLs []string, frontDomain, authKey string, timeout time.Duration) *Coalescer {
+	c := &Coalescer{
+		client:        client,
+		appScriptURLs: appScriptURLs,
+		frontDomain:   frontDomain,
+		authKey:       authKey,
+		timeout:       timeout,
+		window:        15 * time.Millisecond,
+		maxBatch:      10,
+		ch:            make(chan *coalescerItem, 512),
+	}
+	go c.run()
+	return c
+}
+
+// Submit queues a relay request and blocks until the response is ready.
+func (c *Coalescer) Submit(method, targetURL string, headers map[string]string, body []byte) (RelayResponse, error) {
+	item := &coalescerItem{
+		method:    method,
+		targetURL: targetURL,
+		headers:   headers,
+		body:      body,
+		result:    make(chan coalescerResult, 1),
+	}
+	c.ch <- item
+	r := <-item.result
+	return r.resp, r.err
+}
+
+func (c *Coalescer) run() {
+	for {
+		first := <-c.ch
+		batch := []*coalescerItem{first}
+
+		timer := time.NewTimer(c.window)
+	collect:
+		for len(batch) < c.maxBatch {
+			select {
+			case item := <-c.ch:
+				batch = append(batch, item)
+			case <-timer.C:
+				break collect
+			}
+		}
+		timer.Stop()
+
+		if len(batch) == 1 {
+			resp, err := RelayRequestMulti(c.client, c.appScriptURLs, c.frontDomain, c.authKey,
+				batch[0].method, batch[0].targetURL, batch[0].headers, batch[0].body, c.timeout)
+			batch[0].result <- coalescerResult{resp, err}
+			continue
+		}
+
+		// Multiple requests — send as one batch call.
+		go c.flush(batch)
+	}
+}
+
+func (c *Coalescer) flush(batch []*coalescerItem) {
+	items := make([]batchPayloadItem, len(batch))
+	for i, item := range batch {
+		pi := batchPayloadItem{
+			Method:   strings.ToUpper(item.method),
+			URL:      item.targetURL,
+			Headers:  item.headers,
+			Redirect: true,
+		}
+		if len(item.body) > 0 {
+			pi.Body = base64.StdEncoding.EncodeToString(item.body)
+		}
+		items[i] = pi
+	}
+
+	env := batchEnvelope{Key: c.authKey, Items: items}
+	payload, err := json.Marshal(env)
+	if err != nil {
+		c.failAll(batch, fmt.Errorf("batch marshal: %w", err))
+		return
+	}
+
+	n := len(c.appScriptURLs)
+	start := int(activeURLIdx.Load()) % n
+	var raw []byte
+	var lastErr error
+	for i := 0; i < n; i++ {
+		idx := (start + i) % n
+		raw, lastErr = appsScriptRoundTrip(c.client, c.appScriptURLs[idx], c.frontDomain, string(payload), c.timeout)
+		if lastErr == nil {
+			if i > 0 {
+				activeURLIdx.Store(int64(idx))
+			}
+			break
+		}
+	}
+	if lastErr != nil {
+		c.failAll(batch, lastErr)
+		return
+	}
+
+	var env2 batchResponseEnvelope
+	if err := json.Unmarshal(raw, &env2); err != nil || len(env2.Items) != len(batch) {
+		// Fallback: retry each individually.
+		var wg sync.WaitGroup
+		for _, item := range batch {
+			wg.Add(1)
+			go func(it *coalescerItem) {
+				defer wg.Done()
+				resp, err := RelayRequestMulti(c.client, c.appScriptURLs, c.frontDomain, c.authKey,
+					it.method, it.targetURL, it.headers, it.body, c.timeout)
+				it.result <- coalescerResult{resp, err}
+			}(item)
+		}
+		wg.Wait()
+		return
+	}
+
+	for i, wr := range env2.Items {
+		if wr.Error != "" {
+			batch[i].result <- coalescerResult{err: fmt.Errorf("relay error: %s", wr.Error)}
+			continue
+		}
+		decoded, err := base64.StdEncoding.DecodeString(wr.Body)
+		if err != nil {
+			batch[i].result <- coalescerResult{err: fmt.Errorf("invalid base64: %w", err)}
+			continue
+		}
+		batch[i].result <- coalescerResult{resp: RelayResponse{Status: wr.Status, Headers: wr.Headers, Body: decoded}}
+	}
+}
+
+func (c *Coalescer) failAll(batch []*coalescerItem, err error) {
+	for _, item := range batch {
+		item.result <- coalescerResult{err: err}
+	}
 }
 
 func tryOneURL(client *http.Client, appScriptURL, frontDomain, payload string, timeout time.Duration) (RelayResponse, error) {

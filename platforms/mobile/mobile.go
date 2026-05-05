@@ -4,6 +4,7 @@ package mobile
 import (
 	"zyrln/relay/core"
 	"fmt"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -15,9 +16,10 @@ const (
 )
 
 var (
-	mu        sync.Mutex
-	server    *http.Server
-	lastErr   string
+	mu       sync.Mutex
+	server   *http.Server
+	listener net.Listener
+	lastErr  string
 )
 
 // Start starts the HTTPS MITM relay proxy on listenAddr (e.g. "127.0.0.1:8085").
@@ -41,13 +43,14 @@ func Start(appScriptURL, authKey, listenAddr, caCertPath, caKeyPath string) stri
 	client := core.NewHTTPClient(defaultTimeout)
 	urls := parseURLList(appScriptURL)
 
-	srv, err := core.StartProxy(listenAddr, urls, defaultFrontDomain, authKey, ca, client, defaultTimeout)
+	srv, ln, err := core.StartProxy(listenAddr, urls, defaultFrontDomain, authKey, ca, client, defaultTimeout)
 	if err != nil {
 		lastErr = err.Error()
 		return lastErr
 	}
 
 	server = srv
+	listener = ln
 	lastErr = ""
 	return ""
 }
@@ -60,6 +63,10 @@ func parseURLList(raw string) []string {
 func Stop() {
 	mu.Lock()
 	defer mu.Unlock()
+	if listener != nil {
+		_ = listener.Close()
+		listener = nil
+	}
 	if server != nil {
 		_ = server.Close()
 		server = nil
