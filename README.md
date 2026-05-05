@@ -22,6 +22,8 @@ TLS connections go to Google's IP ranges. The encrypted `Host` header targets yo
 - **Multi-URL quota failover** — configure multiple Apps Script deployments across different Google accounts. The relay sticks to the first URL until quota runs out, then switches transparently with no reconnection or dropped requests.
 - **Full HTTPS support** — the proxy performs local TLS termination so blocked HTTPS sites work transparently. No plaintext data leaves the device.
 - **Android VPN — no root** — one tap routes all browser traffic through the relay at the system level. No per-app configuration, no ADB, no root required.
+- **Multiple saved configs** — save as many relay configs as you want on Android and switch between them with a single tap. Useful for managing multiple Apps Script deployments or sharing configs between users.
+- **Reachability probe tool** — the desktop CLI can test which endpoints are reachable from your network before setting anything up. Covers baseline connectivity, Google APIs, domain-fronting, and the full relay chain so you know exactly what works and what doesn't.
 
 ## Before You Start
 
