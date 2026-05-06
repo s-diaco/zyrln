@@ -63,6 +63,8 @@ The app intercepts HTTPS traffic locally (MITM) so it can relay it. Your browser
 
 This is a one-time step.
 
+⚠️ **Important Note:** Never copy the certificate file from your computer to your phone. The Android app generates its own unique certificate, and using the Windows/Desktop file will result in SSL protocol errors.
+
 ### 2. Import your config
 
 On your desktop, make sure `config.env` is set up (see [README](../README.md#3-configure-and-run-the-desktop-proxy)), then export your config as JSON:

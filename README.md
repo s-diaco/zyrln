@@ -1,5 +1,7 @@
 # Zyrln
 
+[راهنمای فارسی (Persian Guide)](README_FA.md)
+
 A domain-fronting relay that routes traffic through Google infrastructure to bypass DPI-based censorship.
 
 ## How It Works
@@ -173,6 +175,12 @@ make android-debug  # build debug APK (no keystore needed)
 - **Browser-based only**: this is an HTTP proxy, not a full VPN. Only browser traffic and apps that respect the system proxy are relayed. Apps like Instagram, WhatsApp, and Telegram bypass it entirely.
 - **Apps Script quota**: each Google account gets 20,000 relay requests/day. Heavy sites can exhaust this quickly. Each user should deploy their own Apps Script.
 - **Large downloads**: responses over ~12MB per request will be truncated (Apps Script response limit).
+
+---
+
+## Common Mistakes
+
+⚠️ **Copying Certificates:** Never copy the CA certificate from your computer to your phone. Each device (Windows, macOS, Android) generates its own unique certificate. Using the wrong certificate will cause SSL protocol errors. In the Android app, always use the **Install CA Certificate** button inside the app.
 
 ---
 

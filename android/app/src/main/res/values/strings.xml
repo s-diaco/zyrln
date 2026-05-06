@@ -1,13 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Zyrln</string>
-    <string name="btn_import_config">Import Config from Clipboard</string>
+    <string name="btn_import_config">Import from Clipboard</string>
+    <string name="btn_manual_config">Manual Configuration</string>
     <string name="btn_install_ca">Install CA Certificate</string>
     <string name="status_stopped">Stopped</string>
     <string name="status_running">Running — proxy on 127.0.0.1:8085</string>
     <string name="ca_install_hint">Install once. Required for HTTPS sites.</string>
-    <string name="empty_configs">No saved configs yet.\nImport one from clipboard to get started.</string>
+    <string name="empty_configs">No saved configs yet.\nImport or enter one to get started.</string>
+    <string name="dialog_manual_title">Manual Entry</string>
+    <string name="hint_url">Apps Script URLs (comma-separated)</string>
+    <string name="hint_key">Auth Key</string>
     <string name="vpn_notification_title">Zyrln active</string>
+    <string name="dialog_ca_title">Install CA Certificate</string>
+    <string name="dialog_ca_message">The certificate has been saved to:\n\n%1$s\n\nSteps:\n1. Tap "Open Settings" below\n2. Go to Security settings\n3. Tap "Install from device storage"\n4. Browse and select the file\n5. Choose "CA certificate"</string>
+    <string name="msg_ca_saved">Certificate saved to Downloads/%1$s</string>
     <string name="vpn_notification_text">Proxy running on 127.0.0.1:8085</string>
     <string name="channel_id">zyrln_vpn</string>
     <string name="channel_name">VPN Status</string>

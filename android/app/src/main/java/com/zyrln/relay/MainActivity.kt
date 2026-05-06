@@ -74,6 +74,7 @@ class MainActivity : AppCompatActivity() {
         prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
 
         binding.btnImportConfig.setOnClickListener { importConfig() }
+        binding.btnManualConfig.setOnClickListener { manualConfig() }
         binding.btnInstallCA.setOnClickListener { installCACert() }
 
         if (Mobile.isRunning()) {
@@ -291,6 +292,46 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun manualConfig() {
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val dp = resources.displayMetrics.density
+            setPadding((24 * dp).toInt(), (16 * dp).toInt(), (24 * dp).toInt(), 0)
+        }
+
+        val urlInput = EditText(this).apply {
+            hint = getString(R.string.hint_url)
+            inputType = InputType.TYPE_TEXT_VARIATION_URI
+        }
+        val keyInput = EditText(this).apply {
+            hint = getString(R.string.hint_key)
+            inputType = InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+        }
+
+        layout.addView(urlInput)
+        layout.addView(keyInput)
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.dialog_manual_title)
+            .setView(layout)
+            .setPositiveButton("Save") { _, _ ->
+                val url = urlInput.text.toString().trim().replace(Regex("[\\s]"), "")
+                val key = keyInput.text.toString().trim()
+                if (url.isNotEmpty() && key.isNotEmpty()) {
+                    if (saveConfig(url, key)) {
+                        refreshList()
+                        Toast.makeText(this, "Config saved", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this, "Already in list", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    Toast.makeText(this, "Fields cannot be empty", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     private fun loadConfigs(): List<Pair<String, String>> {
         val raw = prefs.getString("configs", "[]") ?: "[]"
         return try {
@@ -350,28 +391,19 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        val fileName = "zyrln-ca.pem"
         try {
             val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             downloads.mkdirs()
-            certFile.copyTo(File(downloads, "zyrln-ca.pem"), overwrite = true)
+            certFile.copyTo(File(downloads, fileName), overwrite = true)
+            Toast.makeText(this, getString(R.string.msg_ca_saved, fileName), Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
             Log.w("MainActivity", "copy to Downloads failed: ${e.message}")
         }
 
         AlertDialog.Builder(this)
-            .setTitle("Install CA Certificate")
-            .setMessage(
-                "The certificate has been saved to:\n\nDownloads/zyrln-ca.pem\n\n" +
-                "Steps:\n" +
-                "1. Tap \"Open Settings\" below\n" +
-                "2. Go to Biometrics & security\n" +
-                "3. Tap \"Other security settings\"\n" +
-                "4. Tap \"Install from device storage\"\n" +
-                "5. Browse to Downloads folder\n" +
-                "6. Select zyrln-ca.pem\n" +
-                "7. Choose \"CA certificate\"\n\n" +
-                "Do this once — HTTPS sites will then work through the relay."
-            )
+            .setTitle(R.string.dialog_ca_title)
+            .setMessage(getString(R.string.dialog_ca_message, "Downloads/$fileName"))
             .setPositiveButton("Open Settings") { _, _ ->
                 startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
             }

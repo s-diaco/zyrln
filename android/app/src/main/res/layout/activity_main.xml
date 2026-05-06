@@ -85,14 +85,22 @@
         android:textColor="@color/subtitle"
         android:visibility="visible" />
 
-    <!-- Import config from clipboard -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnImportConfig"
         android:layout_width="match_parent"
         android:layout_height="52dp"
         android:text="@string/btn_import_config"
         android:textSize="15sp"
-        android:layout_marginBottom="10dp" />
+        android:layout_marginBottom="8dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnManualConfig"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="@string/btn_manual_config"
+        android:textSize="14sp"
+        android:layout_marginBottom="12dp" />
 
     <!-- Install CA -->
     <com.google.android.material.button.MaterialButton

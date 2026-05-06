@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">زیرلن (Zyrln)</string>
+    <string name="btn_import_config">وارد کردن از کلیپ‌بورد</string>
+    <string name="btn_manual_config">تنظیم دستی</string>
+    <string name="btn_install_ca">نصب گواهینامه (CA)</string>
+    <string name="status_stopped">متوقف شده</string>
+    <string name="status_running">در حال اجرا — روی 127.0.0.1:8085</string>
+    <string name="ca_install_hint">یک بار نصب کنید. برای سایت‌های HTTPS الزامی است.</string>
+    <string name="empty_configs">هنوز کانفیگی ذخیره نشده است.\nیکی وارد کنید تا شروع کنیم.</string>
+    <string name="dialog_manual_title">ورود دستی</string>
+    <string name="hint_url">آدرس اسکریپت گوگل (با کاما جدا کنید)</string>
+    <string name="hint_key">کلید اختصاصی (Auth Key)</string>
+    <string name="vpn_notification_title">زیرلن فعال است</string>
+    <string name="dialog_ca_title">نصب گواهینامه امنیتی</string>
+    <string name="dialog_ca_message">فایل گواهینامه در این مسیر ذخیره شد:\n\n%1$s\n\nمراحل نصب:\n۱. دکمه "باز کردن تنظیمات" را بزنید\n۲. به بخش امنیت (Security) بروید\n۳. گزینه "Install from device storage" را بزنید\n۴. فایل را از پوشه Downloads انتخاب کنید\n۵. گزینه "CA certificate" را انتخاب کنید</string>
+    <string name="msg_ca_saved">گواهینامه در پوشه دانلود با نام %1$s ذخیره شد</string>
+</resources>
