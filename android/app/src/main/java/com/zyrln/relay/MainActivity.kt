@@ -85,6 +85,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
+        binding.versionTag.text = "v${BuildConfig.VERSION_NAME}"
 
         binding.btnImportConfig.setOnClickListener { importConfig() }
         binding.btnInstallCA.setOnClickListener { installCACert() }
@@ -97,6 +98,7 @@ class MainActivity : AppCompatActivity() {
         }
         updateUI(running = Mobile.isRunning())
         updateLanguageButton()
+        updateThemeButton()
 
         // Apply saved theme
         val savedTheme = prefs.getInt("theme_mode", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
@@ -145,11 +147,18 @@ class MainActivity : AppCompatActivity() {
         val nextMode = if (isNight) AppCompatDelegate.MODE_NIGHT_NO else AppCompatDelegate.MODE_NIGHT_YES
         AppCompatDelegate.setDefaultNightMode(nextMode)
         prefs.edit().putInt("theme_mode", nextMode).apply()
+        updateThemeButton()
     }
 
     private fun updateLanguageButton() {
         val currentLocale = AppCompatDelegate.getApplicationLocales()[0]?.language ?: Locale.getDefault().language
         binding.btnLanguage.text = if (currentLocale == "fa") "EN" else "FA"
+    }
+
+    private fun updateThemeButton() {
+        val isNight = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        binding.btnTheme.setImageResource(if (isNight) R.drawable.ic_sun else R.drawable.ic_moon)
+        binding.btnTheme.imageTintList = ContextCompat.getColorStateList(this, R.color.icon)
     }
 
     private fun refreshList(running: Boolean = Mobile.isRunning()) {
@@ -166,6 +175,8 @@ class MainActivity : AppCompatActivity() {
         binding.emptyState.visibility = View.GONE
 
         val dp = resources.displayMetrics.density
+        val iconButtonSize = (40 * dp).toInt()
+        val iconButtonPadding = (8 * dp).toInt()
 
         val hostnames = configs.map { (url, _) -> configLabel(url) }
 
@@ -185,6 +196,7 @@ class MainActivity : AppCompatActivity() {
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
+                layoutDirection = View.LAYOUT_DIRECTION_LTR
                 val p = (16 * dp).toInt()
                 setPadding(p, p, p, p)
             }
@@ -200,6 +212,7 @@ class MainActivity : AppCompatActivity() {
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 textAlignment = View.TEXT_ALIGNMENT_VIEW_START
+                textDirection = View.TEXT_DIRECTION_LTR
                 setTextColor(ContextCompat.getColor(this@MainActivity, R.color.title))
                 if (isActive) setTypeface(null, Typeface.BOLD)
             }
@@ -209,9 +222,11 @@ class MainActivity : AppCompatActivity() {
                 visibility = if (urlList.size > 1) View.VISIBLE else View.GONE
                 setImageDrawable(ContextCompat.getDrawable(this@MainActivity, R.drawable.ic_info))
                 background = null
-                imageTintList = ContextCompat.getColorStateList(this@MainActivity, R.color.subtitle)
+                imageTintList = ContextCompat.getColorStateList(this@MainActivity, R.color.icon)
+                scaleType = android.widget.ImageView.ScaleType.CENTER
+                setPadding(iconButtonPadding, iconButtonPadding, iconButtonPadding, iconButtonPadding)
                 layoutParams = LinearLayout.LayoutParams(
-                    (36 * dp).toInt(), (36 * dp).toInt()
+                    iconButtonSize, iconButtonSize
                 ).apply { marginEnd = (4 * dp).toInt() }
             }
             infoBtn.setOnClickListener {
@@ -229,24 +244,27 @@ class MainActivity : AppCompatActivity() {
 
             val actionBtn = android.widget.ImageButton(this).apply {
                 layoutParams = LinearLayout.LayoutParams(
-                    (44 * dp).toInt(), (44 * dp).toInt()
+                    iconButtonSize, iconButtonSize
                 ).apply { marginEnd = (12 * dp).toInt() }
                 setImageDrawable(ContextCompat.getDrawable(this@MainActivity,
                     if (isActive && running) R.drawable.ic_pause else R.drawable.ic_play))
                 background = null
-                imageTintList = ContextCompat.getColorStateList(this@MainActivity,
-                    if (isActive && running) R.color.dot_active else R.color.accent)
+                imageTintList = ContextCompat.getColorStateList(this@MainActivity, R.color.icon)
+                scaleType = android.widget.ImageView.ScaleType.CENTER
+                setPadding(iconButtonPadding, iconButtonPadding, iconButtonPadding, iconButtonPadding)
                 isClickable = false
                 isFocusable = false
             }
 
             val deleteBtn = android.widget.ImageButton(this).apply {
                 layoutParams = LinearLayout.LayoutParams(
-                    (40 * dp).toInt(), (40 * dp).toInt()
+                    iconButtonSize, iconButtonSize
                 ).apply { marginStart = (8 * dp).toInt() }
                 setImageDrawable(ContextCompat.getDrawable(this@MainActivity, R.drawable.ic_delete))
                 background = null
-                imageTintList = ContextCompat.getColorStateList(this@MainActivity, R.color.subtitle)
+                imageTintList = ContextCompat.getColorStateList(this@MainActivity, R.color.icon)
+                scaleType = android.widget.ImageView.ScaleType.CENTER
+                setPadding(iconButtonPadding, iconButtonPadding, iconButtonPadding, iconButtonPadding)
             }
 
             row.addView(actionBtn)

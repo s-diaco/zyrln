@@ -763,7 +763,7 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 			"running":  running,
 			"uptime":   uptime,
 			"requests": atomic.LoadInt64(&guiRequestCount),
-			"version":  "1.5.1-pre1",
+			"version":  "1.5.1-pre2",
 		})
 	})
 

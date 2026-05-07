@@ -21,7 +21,7 @@ TLS connections go to Google's IP ranges. The encrypted `Host` header targets yo
 - **Undetectable by DPI** — all traffic exits from Google's IP ranges and is indistinguishable from normal Google traffic. There is no VPN fingerprint, no unusual port, and no dedicated server IP to block.
 - **Request coalescing** — concurrent browser requests are batched into a single Apps Script call. A page load that fires 30 requests uses 1–3 Apps Script executions instead of 30, dramatically extending daily quota.
 - **In-proxy response cache** — static assets (JS, CSS, fonts, images) are served from memory on repeat visits. Cached responses skip the relay entirely, making subsequent page loads significantly faster.
-- **Multi-URL quota failover** — configure multiple Apps Script deployments across different Google accounts. The relay sticks to the first URL until quota runs out, then switches transparently with no reconnection or dropped requests.
+- **Parallel multi-URL failover** — configure multiple Apps Script deployments across different Google accounts. The relay races configured URLs in parallel and uses the first successful response, avoiding long waits when one deployment is slow or out of quota.
 - **Full HTTPS support** — the proxy performs local TLS termination so blocked HTTPS sites work transparently. No plaintext data leaves the device.
 - **Android VPN — no root** — one tap routes all browser traffic through the relay at the system level. No per-app configuration, no ADB, no root required.
 - **Multiple saved configs** — save as many relay configs as you want on Android and switch between them with a single tap. Useful for managing multiple Apps Script deployments or sharing configs between users.
@@ -68,7 +68,7 @@ const EXIT_RELAY_KEY = "";                   // optional, leave empty for now
 5. Copy the deployment URL — it looks like:
    `https://script.google.com/macros/s/AKfycb.../exec`
 
-> **Quota:** each Google account gets 20,000 relay calls/day. You can add multiple Apps Script deployments (under different Google accounts) as a comma-separated list in your config. The relay automatically switches to the next URL when one runs out.
+> **Quota:** each Google account gets 20,000 relay calls/day. You can add multiple Apps Script deployments (under different Google accounts) as a comma-separated list in your config. Zyrln races configured URLs in parallel, so use multiple deployments mainly for resilience and lower failover latency.
 
 ### 2. Deploy the exit relay (VPS or Cloudflare)
 
@@ -82,7 +82,9 @@ Deploy `relay/cloudflare/worker.js` as a Worker. See **[docs/cloudflare-setup.md
 
 ### 3. Set up the desktop proxy
 
-**Prerequisites:** Go 1.25+, `make`. On Windows, use **Git Bash** — cmd.exe and PowerShell are not supported.
+**From a release build:** download the desktop binary for your OS. The GUI is embedded in the binary, so you do not need the source tree beside it.
+
+**Building from source:** requires Go 1.25+ and `make`. On Windows, use the pre-built `.exe` or Git Bash for source builds — cmd.exe and PowerShell are not supported for the Makefile workflow.
 
 Create `config.env` (gitignored):
 
@@ -98,7 +100,7 @@ Multiple Apps Script URLs (comma-separated, no spaces):
 fronted-appscript-url = https://script.google.com/.../exec1,https://script.google.com/.../exec2
 ```
 
-Build and generate the local CA once:
+If building from source, build first. Then generate the local CA once:
 
 ```bash
 make desktop && ./zyrln -init-ca
@@ -110,7 +112,7 @@ Install `certs/zyrln-ca.pem` as a trusted CA in your browser:
 
 Start the proxy:
 
-- **Windows**: Double-click `run.bat`
+- **Windows**: Put `run.bat` next to `zyrln-windows-amd64.exe`, then double-click `run.bat`
 - **Linux/Mac**: Run `make gui`
 
 Set your browser's HTTP and HTTPS proxy to `127.0.0.1:8085`.

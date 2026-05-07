@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">زیرلن (Zyrln)</string>
+    <string name="app_name">زیرلن</string>
+    <string name="app_tagline">رله دامنه‌پوشانی‌شده با Google Apps Script</string>
     <string name="btn_import_config">وارد کردن از کلیپ‌بورد</string>
     <string name="btn_manual_config">تنظیم دستی</string>
     <string name="btn_install_ca">نصب گواهینامه (CA)</string>

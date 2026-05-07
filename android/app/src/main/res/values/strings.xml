@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Zyrln</string>
+    <string name="app_tagline">Domain-fronted relay via Google Apps Script</string>
     <string name="btn_import_config">Import from Clipboard</string>
     <string name="btn_manual_config">Manual Configuration</string>
     <string name="btn_install_ca">Install CA Certificate</string>

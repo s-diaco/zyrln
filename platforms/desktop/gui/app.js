@@ -1,4 +1,160 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const translations = {
+        en: {
+            'status.disconnected': 'Disconnected',
+            'app.title': 'Zyrln Control Center',
+            'brand.name': 'ZYRLN',
+            'status.running': 'Running',
+            'status.unavailable': 'Status unavailable',
+            'button.connect': 'Connect',
+            'button.disconnect': 'Disconnect',
+            'section.config': 'Configuration',
+            'label.endpoints': 'Relay Endpoints (Apps Script)',
+            'help.endpoints': 'One or more Google Apps Script URLs. Commas allow automatic failover if one fails.',
+            'hint.endpoints': 'Separate multiple URLs with commas.',
+            'label.authKey': 'Auth Key',
+            'help.authKey': 'Secret key used for authenticating with your Apps Script relay. Must match across all components.',
+            'label.listen': 'Listen Address',
+            'help.listen': 'The local IP and port where Zyrln will listen for connections (default 127.0.0.1:8085).',
+            'button.save': 'Save Changes',
+            'section.tools': 'Tools & Diagnostics',
+            'tool.diagnostics': 'Diagnostics',
+            'tool.diagnosticsDesc': 'Verify relay chain reachability',
+            'button.runTest': 'Run Test',
+            'tool.android': 'Android Sync',
+            'tool.androidDesc': 'Export for mobile app',
+            'button.export': 'Export',
+            'tool.security': 'Security',
+            'tool.securityDesc': 'Manage CA certificates',
+            'button.installCert': 'Install Certificate',
+            'help.cert': 'Generate and download the CA certificate',
+            'stat.uptime': 'Uptime',
+            'stat.requests': 'Requests',
+            'section.monitor': 'Live Monitor',
+            'placeholder.filter': 'Filter logs...',
+            'button.clearLogs': 'Clear Logs',
+            'log.initial': 'System initialized. Ready for connection.',
+            'modal.exportTitle': 'Export Configuration',
+            'modal.exportDesc': 'Copy this JSON into your Android app:',
+            'modal.mobileSync': 'Mobile Sync',
+            'button.copyClose': 'Copy & Close',
+            'progress.processing': 'Processing...',
+            'progress.saving': 'Saving configuration...',
+            'progress.starting': 'Starting proxy...',
+            'progress.stopping': 'Stopping proxy...',
+            'progress.diagnostics': 'Running connection diagnostics...',
+            'progress.export': 'Generating export data...',
+            'progress.cert': 'Generating certificate...',
+            'toast.configSaved': 'Configuration saved',
+            'toast.saveFailed': 'Save failed',
+            'toast.saveError': 'Error saving configuration',
+            'toast.configIncomplete': 'Saved configuration incomplete',
+            'toast.proxyStarted': 'Proxy started',
+            'toast.proxyStopped': 'Proxy stopped',
+            'toast.actionFailed': 'Action failed',
+            'toast.exportFailed': 'Export failed',
+            'toast.certReady': 'Certificate Ready',
+            'toast.copied': 'Copied to clipboard!',
+            'log.configLoaded': 'Configuration loaded from config.env',
+            'log.configUpdated': 'Configuration updated.',
+            'log.cannotStart': 'Cannot start proxy: saved relay endpoint, auth key, and listen address are required.',
+            'log.proxyStarted': 'Proxy started on {listen}',
+            'log.proxyStopped': 'Proxy stopped.',
+            'log.diagnosticsComplete': 'Diagnostics complete.',
+            'log.diagnosticsFailed': 'Diagnostics failed: {error}',
+            'log.exported': 'Exported mobile configuration to modal.',
+            'log.openSave': 'Opening Save dialog...',
+            'log.saveCancelled': 'Save cancelled.',
+            'log.certRegenerated': 'Certificate regenerated. Writing to file...',
+            'log.certSaved': 'Certificate saved successfully.',
+            'log.certDownloaded': 'Certificate downloaded to your standard folder.'
+        },
+        fa: {
+            'status.disconnected': 'قطع است',
+            'app.title': 'مرکز کنترل زیرلن',
+            'brand.name': 'زیرلن',
+            'status.running': 'در حال اجرا',
+            'status.unavailable': 'وضعیت در دسترس نیست',
+            'button.connect': 'اتصال',
+            'button.disconnect': 'قطع اتصال',
+            'section.config': 'پیکربندی',
+            'label.endpoints': 'آدرس‌های رله (Apps Script)',
+            'help.endpoints': 'یک یا چند آدرس Google Apps Script. چند آدرس را با کاما جدا کنید.',
+            'hint.endpoints': 'برای چند آدرس، آن‌ها را با کاما جدا کنید.',
+            'label.authKey': 'کلید احراز هویت',
+            'help.authKey': 'کلید محرمانه برای اتصال به رله Apps Script. باید در همه بخش‌ها یکسان باشد.',
+            'label.listen': 'آدرس شنود',
+            'help.listen': 'آی‌پی و پورت محلی که زیرلن روی آن اتصال‌ها را می‌پذیرد. پیش‌فرض 127.0.0.1:8085 است.',
+            'button.save': 'ذخیره تغییرات',
+            'section.tools': 'ابزارها و عیب‌یابی',
+            'tool.diagnostics': 'عیب‌یابی',
+            'tool.diagnosticsDesc': 'بررسی دسترسی زنجیره رله',
+            'button.runTest': 'اجرای تست',
+            'tool.android': 'همگام‌سازی اندروید',
+            'tool.androidDesc': 'خروجی برای اپ موبایل',
+            'button.export': 'خروجی',
+            'tool.security': 'امنیت',
+            'tool.securityDesc': 'مدیریت گواهینامه CA',
+            'button.installCert': 'نصب گواهینامه',
+            'help.cert': 'ساخت و دانلود گواهینامه CA',
+            'stat.uptime': 'زمان اجرا',
+            'stat.requests': 'درخواست‌ها',
+            'section.monitor': 'مانیتور زنده',
+            'placeholder.filter': 'فیلتر لاگ‌ها...',
+            'button.clearLogs': 'پاک کردن لاگ‌ها',
+            'modal.exportTitle': 'خروجی پیکربندی',
+            'modal.exportDesc': 'این JSON را در اپ اندروید وارد کنید:',
+            'modal.mobileSync': 'همگام‌سازی موبایل',
+            'button.copyClose': 'کپی و بستن',
+            'progress.processing': 'در حال پردازش...',
+            'progress.saving': 'در حال ذخیره پیکربندی...',
+            'progress.starting': 'در حال شروع پروکسی...',
+            'progress.stopping': 'در حال توقف پروکسی...',
+            'progress.diagnostics': 'در حال اجرای عیب‌یابی اتصال...',
+            'progress.export': 'در حال ساخت خروجی...',
+            'progress.cert': 'در حال ساخت گواهینامه...',
+            'toast.configSaved': 'پیکربندی ذخیره شد',
+            'toast.saveFailed': 'ذخیره ناموفق بود',
+            'toast.saveError': 'خطا در ذخیره پیکربندی',
+            'toast.configIncomplete': 'پیکربندی ذخیره‌شده کامل نیست',
+            'toast.proxyStarted': 'پروکسی شروع شد',
+            'toast.proxyStopped': 'پروکسی متوقف شد',
+            'toast.actionFailed': 'عملیات ناموفق بود',
+            'toast.exportFailed': 'خروجی ناموفق بود',
+            'toast.certReady': 'گواهینامه آماده است',
+            'toast.copied': 'در کلیپ‌بورد کپی شد',
+        }
+    };
+
+    let currentLang = localStorage.getItem('zyrln_lang') || 'en';
+    const t = (key, params = {}) => {
+        const value = translations[currentLang][key] || translations.en[key] || key;
+        return Object.entries(params).reduce((text, [name, replacement]) => (
+            text.replaceAll(`{${name}}`, replacement)
+        ), value);
+    };
+    const tLog = (key, params = {}) => {
+        const value = translations.en[key] || key;
+        return Object.entries(params).reduce((text, [name, replacement]) => (
+            text.replaceAll(`{${name}}`, replacement)
+        ), value);
+    };
+    const legacyPersianLogs = new Map([
+        ['پیکربندی از config.env خوانده شد', translations.en['log.configLoaded']],
+        ['پیکربندی به‌روزرسانی شد.', translations.en['log.configUpdated']],
+        ['در حال توقف پروکسی...', translations.en['progress.stopping']],
+        ['در حال شروع پروکسی...', translations.en['progress.starting']],
+        ['در حال اجرای عیب‌یابی اتصال...', translations.en['progress.diagnostics']],
+        ['عیب‌یابی کامل شد.', translations.en['log.diagnosticsComplete']],
+        ['پیکربندی موبایل در پنجره خروجی نمایش داده شد.', translations.en['log.exported']],
+        ['در حال باز کردن پنجره ذخیره...', translations.en['log.openSave']],
+        ['ذخیره لغو شد.', translations.en['log.saveCancelled']],
+        ['گواهینامه دوباره ساخته شد. در حال نوشتن فایل...', translations.en['log.certRegenerated']],
+        ['گواهینامه با موفقیت ذخیره شد.', translations.en['log.certSaved']],
+        ['گواهینامه در پوشه دانلود پیش‌فرض ذخیره شد.', translations.en['log.certDownloaded']],
+    ]);
+    const normalizeLogMessage = (msg) => legacyPersianLogs.get(msg) || msg;
+
     // State management
     window.__ZYRLN_STATE__ = {
         running: false,
@@ -21,6 +177,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const logFilter = document.getElementById('logFilter');
     const toggleAuthVisible = document.getElementById('toggleAuthVisible');
     const authKeyInput = document.getElementById('auth-key');
+    const languageToggleBtn = document.getElementById('languageToggleBtn');
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
 
     // UI Feedback Elements
     const progressIndicator = document.getElementById('progressIndicator');
@@ -42,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const input = document.getElementById(key);
                 if (input) input.value = value;
             }
-            showLog('Configuration loaded from config.env');
+            showLog(tLog('log.configLoaded'));
             validateInputs();
         } catch (err) {
             showLog(`Error loading config: ${err.message}`, 'error');
@@ -51,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     configForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        showProgress('Saving configuration...');
+        showProgress(t('progress.saving'));
         const formData = new FormData(configForm);
         const data = Object.fromEntries(formData.entries());
 
@@ -64,16 +222,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.ok) {
                 window.__ZYRLN_STATE__.lastSavedConfig = data;
-                showToast('Configuration saved');
-                showLog('Configuration updated.');
+                showToast(t('toast.configSaved'));
+                showLog(tLog('log.configUpdated'));
                 validateInputs();
             } else {
                 const errText = await response.text();
                 showLog(`Save failed: ${errText}`, 'error');
-                showToast('Save failed', 'error');
+                showToast(t('toast.saveFailed'), 'error');
             }
         } catch (err) {
-            showToast('Error saving configuration', 'error');
+            showToast(t('toast.saveError'), 'error');
             showLog(`Save failed: ${err.message}`, 'error');
         } finally {
             hideProgress();
@@ -84,26 +242,26 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleProxyBtn.addEventListener('click', async () => {
         const isRunning = window.__ZYRLN_STATE__.running;
         if (!isRunning && !hasSavedConfig()) {
-            showLog('Cannot start proxy: saved relay endpoint, auth key, and listen address are required.', 'error');
-            showToast('Saved configuration incomplete', 'error');
+            showLog(tLog('log.cannotStart'), 'error');
+            showToast(t('toast.configIncomplete'), 'error');
             validateInputs();
             return;
         }
         const endpoint = isRunning ? '/api/stop' : '/api/start';
 
-        showProgress(isRunning ? 'Stopping proxy...' : 'Starting proxy...');
-        showLog(isRunning ? 'Stopping proxy...' : 'Starting proxy...');
+        showProgress(isRunning ? t('progress.stopping') : t('progress.starting'));
+        showLog(isRunning ? tLog('progress.stopping') : tLog('progress.starting'));
         try {
             const response = await fetch(endpoint, { method: 'POST' });
             if (response.ok) {
-                showLog(isRunning ? '✅ Proxy stopped.' : '✅ Proxy started on ' + (document.getElementById('listen').value || '127.0.0.1:8085'));
-                showToast(isRunning ? 'Proxy stopped' : 'Proxy started');
+                showLog(isRunning ? `✅ ${tLog('log.proxyStopped')}` : `✅ ${tLog('log.proxyStarted', { listen: document.getElementById('listen').value || '127.0.0.1:8085' })}`);
+                showToast(isRunning ? t('toast.proxyStopped') : t('toast.proxyStarted'));
                 updateStatus();
                 validateInputs();
             } else {
                 const errText = await response.text();
                 showLog(`❌ Failed: ${errText}`, 'error');
-                showToast('Action failed: ' + errText, 'error');
+                showToast(`${t('toast.actionFailed')}: ${errText}`, 'error');
             }
         } catch (err) {
             showLog(`❌ Connection error: ${err.message}`, 'error');
@@ -117,8 +275,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.__ZYRLN_STATE__.probesRunning) return;
 
         window.__ZYRLN_STATE__.probesRunning = true;
-        showProgress('Running connection diagnostics...');
-        showLog('Running connection diagnostics...');
+        showProgress(t('progress.diagnostics'));
+        showLog(tLog('progress.diagnostics'));
 
         try {
             const response = await fetch('/api/probes');
@@ -127,9 +285,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const status = r.ok ? 'OK' : 'FAIL';
                 showLog(`${r.probe.name}: ${status} (${r.duration_ms}ms)`, r.ok ? 'info' : 'error');
             });
-            showLog('Diagnostics complete.');
+            showLog(tLog('log.diagnosticsComplete'));
         } catch (err) {
-            showLog('Diagnostics failed: ' + err.message, 'error');
+            showLog(tLog('log.diagnosticsFailed', { error: err.message }), 'error');
         } finally {
             window.__ZYRLN_STATE__.probesRunning = false;
             hideProgress();
@@ -137,23 +295,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     exportMobileBtn.addEventListener('click', async () => {
-        showProgress('Generating export data...');
+        showProgress(t('progress.export'));
         try {
             const response = await fetch('/api/export');
             const config = await response.json();
             const jsonStr = JSON.stringify(config, null, 2);
 
-            openModal('Mobile Sync', jsonStr);
-            showLog('Exported mobile configuration to modal.');
+            openModal(t('modal.mobileSync'), jsonStr);
+            showLog(tLog('log.exported'));
         } catch (err) {
-            showToast('Export failed', 'error');
+            showToast(t('toast.exportFailed'), 'error');
         } finally {
             hideProgress();
         }
     });
 
     btnRegenCA.addEventListener('click', async () => {
-        showLog('Opening Save dialog...', 'info');
+        showLog(tLog('log.openSave'), 'info');
         
         try {
             let handle = null;
@@ -169,19 +327,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 } catch (err) {
                     if (err.name === 'AbortError') {
-                        showLog('Save cancelled.', 'info');
+                        showLog(tLog('log.saveCancelled'), 'info');
                         return;
                     }
                     console.error('Picker failed:', err);
                 }
             }
 
-            showProgress('Generating certificate...');
+            showProgress(t('progress.cert'));
             // 2. Regenerate on backend
             const response = await fetch('/api/init-ca', { method: 'POST' });
             if (!response.ok) throw new Error('Generation failed');
             
-            showLog('✅ Certificate regenerated. Writing to file...', 'info');
+            showLog(`✅ ${tLog('log.certRegenerated')}`, 'info');
             
             // 3. Download the data
             const certRes = await fetch('/api/download-ca');
@@ -192,7 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const writable = await handle.createWritable();
                 await writable.write(blob);
                 await writable.close();
-                showLog('✅ Certificate saved successfully.', 'info');
+                showLog(`✅ ${tLog('log.certSaved')}`, 'info');
             } else {
                 // Fallback for non-supported browsers
                 const url = window.URL.createObjectURL(blob);
@@ -201,15 +359,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 a.download = 'zyrln-ca.pem';
                 a.click();
                 window.URL.revokeObjectURL(url);
-                showLog('✅ Certificate downloaded to your standard folder.', 'info');
+                showLog(`✅ ${tLog('log.certDownloaded')}`, 'info');
             }
             
-            showToast('Certificate Ready');
+            showToast(t('toast.certReady'));
             updateStatus();
         } catch (err) {
             console.error('Action Error:', err);
             showLog(`❌ Error: ${err.message}`, 'error');
-            showToast('Action failed');
+            showToast(t('toast.actionFailed'));
         } finally {
             hideProgress();
         }
@@ -237,7 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     modalActionBtn.onclick = async () => {
         await navigator.clipboard.writeText(modalTextArea.value);
-        showToast('Copied to clipboard!');
+        showToast(t('toast.copied'));
         modalOverlay.classList.remove('active');
     };
 
@@ -270,6 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function showLog(msg, type = 'info', savedTime = null) {
+        msg = normalizeLogMessage(msg);
         const entry = document.createElement('div');
         entry.className = `log-entry ${type}`;
         const time = savedTime || new Date().toLocaleTimeString([], { hour12: false });
@@ -305,24 +464,55 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 3000);
     }
 
+    function applyLocalization() {
+        document.documentElement.lang = currentLang;
+        document.documentElement.dir = currentLang === 'fa' ? 'rtl' : 'ltr';
+        document.title = t('app.title');
+        document.body.classList.toggle('rtl', currentLang === 'fa');
+        languageToggleBtn.textContent = currentLang === 'fa' ? 'EN' : 'FA';
+
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            el.textContent = t(el.dataset.i18n);
+        });
+        document.querySelectorAll('[data-i18n-title]').forEach(el => {
+            el.title = t(el.dataset.i18nTitle);
+        });
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            el.placeholder = t(el.dataset.i18nPlaceholder);
+        });
+        updateStatusText();
+    }
+
+    function updateStatusText() {
+        if (window.__ZYRLN_STATE__.statusUnavailable) {
+            proxyStatusText.textContent = t('status.unavailable');
+            return;
+        }
+        if (window.__ZYRLN_STATE__.running) {
+            proxyStatusText.textContent = t('status.running');
+            toggleProxyBtn.textContent = t('button.disconnect');
+        } else {
+            proxyStatusText.textContent = t('status.disconnected');
+            toggleProxyBtn.textContent = t('button.connect');
+        }
+    }
+
     async function updateStatus() {
         try {
             const response = await fetch('/api/status');
             if (!response.ok) throw new Error(await response.text());
             const status = await response.json();
             window.__ZYRLN_STATE__.running = status.running;
+            window.__ZYRLN_STATE__.statusUnavailable = false;
 
             if (status.running) {
                 proxyStatusIndicator.classList.add('online');
-                proxyStatusText.textContent = 'Running';
-                toggleProxyBtn.textContent = 'Disconnect';
                 toggleProxyBtn.classList.add('danger');
             } else {
                 proxyStatusIndicator.classList.remove('online');
-                proxyStatusText.textContent = 'Disconnected';
-                toggleProxyBtn.textContent = 'Connect';
                 toggleProxyBtn.classList.remove('danger');
             }
+            updateStatusText();
 
             document.getElementById('uptimeValue').textContent = status.uptime || '00:00:00';
             document.getElementById('requestCount').textContent = status.requests || '0';
@@ -330,11 +520,31 @@ document.addEventListener('DOMContentLoaded', () => {
             // Ensure inputs are disabled/enabled based on running state
             validateInputs();
         } catch (err) {
+            window.__ZYRLN_STATE__.statusUnavailable = true;
             proxyStatusIndicator.classList.remove('online');
-            proxyStatusText.textContent = 'Status unavailable';
+            proxyStatusText.textContent = t('status.unavailable');
             setButtonDisabled(toggleProxyBtn, true);
         }
     }
+
+    languageToggleBtn.onclick = () => {
+        currentLang = currentLang === 'fa' ? 'en' : 'fa';
+        localStorage.setItem('zyrln_lang', currentLang);
+        applyLocalization();
+    };
+
+    function applyTheme() {
+        const theme = localStorage.getItem('zyrln_theme') || 'dark';
+        document.body.classList.toggle('light-mode', theme === 'light');
+        document.body.classList.toggle('dark-mode', theme !== 'light');
+        themeToggleBtn.textContent = theme === 'light' ? '☾' : '☀';
+    }
+
+    themeToggleBtn.onclick = () => {
+        const currentTheme = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+        localStorage.setItem('zyrln_theme', currentTheme === 'light' ? 'dark' : 'light');
+        applyTheme();
+    };
 
     clearLogsBtn.onclick = () => {
         logOutput.innerHTML = '';
@@ -347,7 +557,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (savedLogs) {
         try {
             const logs = JSON.parse(savedLogs);
-            logs.forEach(l => showLog(l.msg, l.type, l.time));
+            logs.forEach(l => showLog(normalizeLogMessage(l.msg), l.type, l.time));
         } catch (e) { localStorage.removeItem('zyrln_logs'); }
     }
 
@@ -401,6 +611,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el) el.addEventListener('input', validateInputs);
     });
 
+    applyTheme();
+    applyLocalization();
     loadConfig().then(validateInputs);
     setInterval(updateStatus, 2000);
     updateStatus();

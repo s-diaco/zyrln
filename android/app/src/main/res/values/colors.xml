@@ -3,6 +3,7 @@
     <color name="background">#FFFFFF</color>
     <color name="title">#0D1B3E</color>
     <color name="subtitle">#546E7A</color>
+    <color name="icon">#111111</color>
     <color name="dot_active">#00C853</color>
     <color name="dot_inactive">#CFD8DC</color>
     <color name="primary">#1A237E</color>

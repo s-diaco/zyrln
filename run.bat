@@ -3,12 +3,11 @@ title Zyrln Control Center
 echo Starting Zyrln...
 
 set "ZYRLN_EXE="
-if exist zyrln.exe set "ZYRLN_EXE=zyrln.exe"
 if exist zyrln-windows-amd64.exe set "ZYRLN_EXE=zyrln-windows-amd64.exe"
 
 if "%ZYRLN_EXE%"=="" (
     echo [ERROR] Zyrln executable not found!
-    echo Put zyrln.exe or zyrln-windows-amd64.exe in this folder.
+    echo Put zyrln-windows-amd64.exe in this folder.
     pause
     exit /b
 )

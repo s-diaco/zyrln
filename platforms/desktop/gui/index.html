@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,19 +8,23 @@
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;500&family=Vazirmatn:wght@400;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body class="dark-mode">
     <div class="app-wrapper">
         <header class="main-header">
             <div class="logo">
                 <img class="logo-icon" src="zyrln-icon.svg" alt="" aria-hidden="true">
-                <span class="logo-text">ZYRLN <span class="v-tag">v1.5.1-pre1</span></span>
+                <span class="logo-text"><span data-i18n="brand.name">ZYRLN</span> <span class="v-tag">v1.5.1-pre2</span></span>
             </div>
-            <div class="header-status">
-                <div class="status-indicator" id="proxyStatusIndicator" data-testid="proxy-status-indicator"></div>
-                <span id="proxyStatusText" data-testid="proxy-status-text">Disconnected</span>
-                <button id="toggleProxyBtn" class="connect-btn" data-testid="toggle-proxy-btn">Connect</button>
+            <div class="header-actions">
+                <button id="themeToggleBtn" class="theme-btn" type="button" aria-label="Toggle theme">☀</button>
+                <button id="languageToggleBtn" class="lang-btn" type="button">FA</button>
+                <div class="header-status">
+                    <div class="status-indicator" id="proxyStatusIndicator" data-testid="proxy-status-indicator"></div>
+                    <span id="proxyStatusText" data-testid="proxy-status-text" data-i18n="status.disconnected">Disconnected</span>
+                    <button id="toggleProxyBtn" class="connect-btn" data-testid="toggle-proxy-btn" data-i18n="button.connect">Connect</button>
+                </div>
             </div>
         </header>
 
@@ -28,21 +32,21 @@
             <!-- Left: Configuration -->
             <section class="card config-section">
                 <div class="card-header">
-                    <h2>⚙️ Configuration</h2>
+                    <h2 data-i18n="section.config">⚙️ Configuration</h2>
                 </div>
                 <form id="configForm" data-testid="config-form">
                     <div class="form-group">
                         <label for="fronted-appscript-url">
-                            Relay Endpoints (Apps Script)
-                            <span class="help-icon" title="One or more Google Apps Script URLs. Commas allow automatic failover if one fails.">?</span>
+                            <span data-i18n="label.endpoints">Relay Endpoints (Apps Script)</span>
+                            <span class="help-icon" data-i18n-title="help.endpoints" title="One or more Google Apps Script URLs. Commas allow automatic failover if one fails.">?</span>
                         </label>
                         <textarea id="fronted-appscript-url" name="fronted-appscript-url" data-testid="input-url" placeholder="https://script.google.com/...,&#10;https://script.google.com/..."></textarea>
-                        <small class="hint">Separate multiple URLs with commas.</small>
+                        <small class="hint" data-i18n="hint.endpoints">Separate multiple URLs with commas.</small>
                     </div>
                     <div class="form-group">
                         <label for="auth-key">
-                            Auth Key
-                            <span class="help-icon" title="Secret key used for authenticating with your Apps Script relay. Must match across all components.">?</span>
+                            <span data-i18n="label.authKey">Auth Key</span>
+                            <span class="help-icon" data-i18n-title="help.authKey" title="Secret key used for authenticating with your Apps Script relay. Must match across all components.">?</span>
                         </label>
                         <div class="input-with-action">
                             <input type="password" id="auth-key" name="auth-key" data-testid="input-key">
@@ -51,53 +55,53 @@
                     </div>
                     <div class="form-group">
                         <label for="listen">
-                            Listen Address
-                            <span class="help-icon" title="The local IP and port where Zyrln will listen for connections (default 127.0.0.1:8085).">?</span>
+                            <span data-i18n="label.listen">Listen Address</span>
+                            <span class="help-icon" data-i18n-title="help.listen" title="The local IP and port where Zyrln will listen for connections (default 127.0.0.1:8085).">?</span>
                         </label>
                         <input type="text" id="listen" name="listen" data-testid="input-listen" placeholder="127.0.0.1:8085">
                     </div>
-                    <button type="submit" class="save-btn" data-testid="save-config-btn">Save Changes</button>
+                    <button type="submit" class="save-btn" data-testid="save-config-btn" data-i18n="button.save">Save Changes</button>
                 </form>
             </section>
 
             <!-- Middle: Tools & Actions -->
             <section class="card tools-section">
                 <div class="card-header">
-                    <h2>🛠️ Tools & Diagnostics</h2>
+                    <h2 data-i18n="section.tools">🛠️ Tools & Diagnostics</h2>
                 </div>
                 <div class="tools-list">
                     <div class="tool-item">
                         <div class="tool-info">
-                            <h3>Diagnostics</h3>
-                            <p>Verify relay chain reachability</p>
+                            <h3 data-i18n="tool.diagnostics">Diagnostics</h3>
+                            <p data-i18n="tool.diagnosticsDesc">Verify relay chain reachability</p>
                         </div>
-                        <button id="runProbesBtn" class="action-btn" data-testid="btn-run-diagnostics">Run Test</button>
+                        <button id="runProbesBtn" class="action-btn" data-testid="btn-run-diagnostics" data-i18n="button.runTest">Run Test</button>
                     </div>
                     <div class="tool-item">
                         <div class="tool-info">
-                            <h3>Android Sync</h3>
-                            <p>Export for mobile app</p>
+                            <h3 data-i18n="tool.android">Android Sync</h3>
+                            <p data-i18n="tool.androidDesc">Export for mobile app</p>
                         </div>
-                        <button id="exportMobileBtn" class="action-btn" data-testid="btn-export-json">Export</button>
+                        <button id="exportMobileBtn" class="action-btn" data-testid="btn-export-json" data-i18n="button.export">Export</button>
                     </div>
                     <div class="tool-item">
                         <div class="tool-info">
-                            <h3>Security</h3>
-                            <p>Manage CA certificates</p>
+                            <h3 data-i18n="tool.security">Security</h3>
+                            <p data-i18n="tool.securityDesc">Manage CA certificates</p>
                         </div>
                         <div class="button-group">
-                            <button type="button" id="btnRegenCA" class="action-btn" data-testid="btn-init-ca" title="Generate and download the CA certificate">Install Certificate</button>
+                            <button type="button" id="btnRegenCA" class="action-btn" data-testid="btn-init-ca" data-i18n="button.installCert" data-i18n-title="help.cert" title="Generate and download the CA certificate">Install Certificate</button>
                         </div>
                     </div>
                 </div>
                 
                 <div class="stats-mini">
                     <div class="mini-stat">
-                        <span class="label">Uptime</span>
+                        <span class="label" data-i18n="stat.uptime">Uptime</span>
                         <span class="value" id="uptimeValue">00:00:00</span>
                     </div>
                     <div class="mini-stat">
-                        <span class="label">Requests</span>
+                        <span class="label" data-i18n="stat.requests">Requests</span>
                         <span class="value" id="requestCount">0</span>
                     </div>
                 </div>
@@ -107,12 +111,12 @@
             <section class="card log-section">
                 <div class="card-header">
                     <div class="log-title">
-                        <h2>📜 Live Monitor</h2>
+                        <h2 data-i18n="section.monitor">📜 Live Monitor</h2>
                         <div class="log-filter-container">
-                            <input type="text" id="logFilter" placeholder="Filter logs..." data-testid="input-log-filter">
+                            <input type="text" id="logFilter" data-i18n-placeholder="placeholder.filter" placeholder="Filter logs..." data-testid="input-log-filter">
                         </div>
                     </div>
-                    <button id="clearLogsBtn" class="text-btn">Clear Logs</button>
+                    <button id="clearLogsBtn" class="text-btn" data-i18n="button.clearLogs">Clear Logs</button>
                 </div>
                 <div id="logOutput" class="log-viewport" data-testid="log-viewport">
                     <div class="log-entry system">System initialized. Ready for connection.</div>
@@ -125,15 +129,15 @@
     <div id="modalOverlay" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="modalTitle">Export Configuration</h2>
+                <h2 id="modalTitle" data-i18n="modal.exportTitle">Export Configuration</h2>
                 <button id="closeModal" class="close-btn">&times;</button>
             </div>
             <div class="modal-body">
-                <p id="modalDescription">Copy this JSON into your Android app:</p>
+                <p id="modalDescription" data-i18n="modal.exportDesc">Copy this JSON into your Android app:</p>
                 <textarea id="modalTextArea" readonly></textarea>
             </div>
             <div class="modal-footer">
-                <button id="modalActionBtn" class="primary-btn">Copy & Close</button>
+                <button id="modalActionBtn" class="primary-btn" data-i18n="button.copyClose">Copy & Close</button>
             </div>
         </div>
     </div>
@@ -144,12 +148,12 @@
             <div id="progressFill" class="progress-fill"></div>
         </div>
         <div class="progress-text-container">
-            <span id="progressText">Processing...</span>
+            <span id="progressText" data-i18n="progress.processing">Processing...</span>
         </div>
     </div>
 
     <div id="toastContainer" class="toast-container"></div>
 
-    <script src="app.js?v=1.5.1-pre1"></script>
+    <script src="app.js?v=1.5.1-pre2"></script>
 </body>
 </html>
