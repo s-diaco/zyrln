@@ -4,7 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
         running: false,
         uptime: '00:00:00',
         logs: [],
-        probesRunning: false
+        probesRunning: false,
+        lastSavedConfig: {}
     };
 
     // DOM Elements
@@ -14,13 +15,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const proxyStatusText = document.getElementById('proxyStatusText');
     const logOutput = document.getElementById('logOutput');
     const clearLogsBtn = document.getElementById('clearLogsBtn');
-    const initCABtn = document.getElementById('initCABtn');
+    const btnRegenCA = document.getElementById('btnRegenCA');
     const runProbesBtn = document.getElementById('runProbesBtn');
     const exportMobileBtn = document.getElementById('exportMobileBtn');
     const logFilter = document.getElementById('logFilter');
     const toggleAuthVisible = document.getElementById('toggleAuthVisible');
     const authKeyInput = document.getElementById('auth-key');
-    
+
     // UI Feedback Elements
     const progressIndicator = document.getElementById('progressIndicator');
     const progressText = document.getElementById('progressText');
@@ -36,11 +37,13 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch('/api/config');
             const config = await response.json();
+            window.__ZYRLN_STATE__.lastSavedConfig = config;
             for (const [key, value] of Object.entries(config)) {
                 const input = document.getElementById(key);
                 if (input) input.value = value;
             }
             showLog('Configuration loaded from config.env');
+            validateInputs();
         } catch (err) {
             showLog(`Error loading config: ${err.message}`, 'error');
         }
@@ -51,17 +54,19 @@ document.addEventListener('DOMContentLoaded', () => {
         showProgress('Saving configuration...');
         const formData = new FormData(configForm);
         const data = Object.fromEntries(formData.entries());
-        
+
         try {
             const response = await fetch('/api/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-            
+
             if (response.ok) {
+                window.__ZYRLN_STATE__.lastSavedConfig = data;
                 showToast('Configuration saved');
                 showLog('Configuration updated.');
+                validateInputs();
             }
         } catch (err) {
             showToast('Error saving configuration', 'error');
@@ -74,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleProxyBtn.addEventListener('click', async () => {
         const isRunning = window.__ZYRLN_STATE__.running;
         const endpoint = isRunning ? '/api/stop' : '/api/start';
-        
+
         showProgress(isRunning ? 'Stopping proxy...' : 'Starting proxy...');
         showLog(isRunning ? 'Stopping proxy...' : 'Starting proxy...');
         try {
@@ -83,6 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 showLog(isRunning ? '✅ Proxy stopped.' : '✅ Proxy started on ' + (document.getElementById('listen').value || '127.0.0.1:8085'));
                 showToast(isRunning ? 'Proxy stopped' : 'Proxy started');
                 updateStatus();
+                validateInputs();
             } else {
                 const errText = await response.text();
                 showLog(`❌ Failed: ${errText}`, 'error');
@@ -98,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Tools & Actions
     runProbesBtn.addEventListener('click', async () => {
         if (window.__ZYRLN_STATE__.probesRunning) return;
-        
+
         window.__ZYRLN_STATE__.probesRunning = true;
         showProgress('Running connection diagnostics...');
         showLog('Running connection diagnostics...');
@@ -125,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/export');
             const config = await response.json();
             const jsonStr = JSON.stringify(config, null, 2);
-            
+
             openModal('Mobile Sync', jsonStr);
             showLog('Exported mobile configuration to modal.');
         } catch (err) {
@@ -135,41 +141,77 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    document.getElementById('downloadCaBtn').addEventListener('click', () => {
-        window.location.href = '/api/download-ca';
+    btnRegenCA.addEventListener('click', async () => {
+        showLog('Opening Save dialog...', 'info');
+        
+        try {
+            let handle = null;
+            // 1. Try to get a save handle immediately (User Activation)
+            if ('showSaveFilePicker' in window) {
+                try {
+                    handle = await window.showSaveFilePicker({
+                        suggestedName: 'zyrln-ca.pem',
+                        types: [{
+                            description: 'PEM Certificate',
+                            accept: { 'application/x-x509-ca-cert': ['.pem'] },
+                        }],
+                    });
+                } catch (err) {
+                    if (err.name === 'AbortError') {
+                        showLog('Save cancelled.', 'info');
+                        return;
+                    }
+                    console.error('Picker failed:', err);
+                }
+            }
+
+            showProgress('Generating certificate...');
+            // 2. Regenerate on backend
+            const response = await fetch('/api/init-ca', { method: 'POST' });
+            if (!response.ok) throw new Error('Generation failed');
+            
+            showLog('✅ Certificate regenerated. Writing to file...', 'info');
+            
+            // 3. Download the data
+            const certRes = await fetch('/api/download-ca');
+            const blob = await certRes.blob();
+            
+            // 4. Save to handle OR fallback
+            if (handle) {
+                const writable = await handle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+                showLog('✅ Certificate saved successfully.', 'info');
+            } else {
+                // Fallback for non-supported browsers
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'zyrln-ca.pem';
+                a.click();
+                window.URL.revokeObjectURL(url);
+                showLog('✅ Certificate downloaded to your standard folder.', 'info');
+            }
+            
+            showToast('Certificate Ready');
+            updateStatus();
+        } catch (err) {
+            console.error('Action Error:', err);
+            showLog(`❌ Error: ${err.message}`, 'error');
+            showToast('Action failed');
+        } finally {
+            hideProgress();
+        }
     });
 
     // Log Filtering
     logFilter.addEventListener('input', (e) => {
         const term = e.target.value.toLowerCase();
         const entries = logOutput.querySelectorAll('.log-entry');
-        
         entries.forEach(entry => {
             const text = entry.textContent.toLowerCase();
             entry.style.display = text.includes(term) ? 'block' : 'none';
         });
-    });
-
-    initCABtn.addEventListener('click', async () => {
-        showProgress('Generating CA Certificate...');
-        try {
-            const response = await fetch('/api/init-ca', { method: 'POST' });
-            if (response.ok) {
-                const data = await response.json();
-                showLog(data.message || 'CA generated.');
-                showToast(data.message || 'CA Generated — import certs/zyrln-ca.pem into your browser');
-                updateStatus(); // Reflect that proxy was stopped
-            } else {
-                const errText = await response.text();
-                showLog('CA Init failed: ' + errText, 'error');
-                showToast('CA Init failed: ' + errText, 'error');
-            }
-        } catch (err) {
-            showLog('CA Init error: ' + err.message, 'error');
-            showToast('CA Init failed', 'error');
-        } finally {
-            hideProgress();
-        }
     });
 
     // Modal Logic
@@ -198,10 +240,22 @@ document.addEventListener('DOMContentLoaded', () => {
         progressIndicator.classList.remove('active');
     }
 
+    const eyeIcon = `
+        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+        </svg>`;
+    const eyeOffIcon = `
+        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+        </svg>`;
+
+    toggleAuthVisible.innerHTML = eyeIcon;
     toggleAuthVisible.onclick = () => {
-        const type = authKeyInput.type === 'password' ? 'text' : 'password';
-        authKeyInput.type = type;
-        toggleAuthVisible.textContent = type === 'password' ? '👁️' : '🔒';
+        const isPassword = authKeyInput.type === 'password';
+        authKeyInput.type = isPassword ? 'text' : 'password';
+        toggleAuthVisible.innerHTML = isPassword ? eyeOffIcon : eyeIcon;
     };
 
     function showLog(msg, type = 'info', savedTime = null) {
@@ -212,18 +266,18 @@ document.addEventListener('DOMContentLoaded', () => {
         entry.dataset.time = time;
         entry.dataset.msg = msg;
         entry.dataset.type = type;
-        
+
         // Save to state and local storage
         window.__ZYRLN_STATE__.logs.push({ time, msg, type });
         if (window.__ZYRLN_STATE__.logs.length > 500) window.__ZYRLN_STATE__.logs.shift();
         localStorage.setItem('zyrln_logs', JSON.stringify(window.__ZYRLN_STATE__.logs));
-        
+
         // Apply current filter
         const term = logFilter.value.toLowerCase();
         if (term && !entry.textContent.toLowerCase().includes(term)) {
             entry.style.display = 'none';
         }
-        
+
         logOutput.appendChild(entry);
         logOutput.scrollTop = logOutput.scrollHeight;
     }
@@ -245,7 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/status');
             const status = await response.json();
             window.__ZYRLN_STATE__.running = status.running;
-            
+
             if (status.running) {
                 proxyStatusIndicator.classList.add('online');
                 proxyStatusText.textContent = 'Running';
@@ -260,7 +314,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             document.getElementById('uptimeValue').textContent = status.uptime || '00:00:00';
             document.getElementById('requestCount').textContent = status.requests || '0';
-        } catch (err) {}
+            
+            // Ensure inputs are disabled/enabled based on running state
+            validateInputs();
+        } catch (err) { }
     }
 
     clearLogsBtn.onclick = () => {
@@ -278,7 +335,46 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { localStorage.removeItem('zyrln_logs'); }
     }
 
-    loadConfig();
+    function validateInputs() {
+        const url = document.getElementById('fronted-appscript-url').value.trim();
+        const key = authKeyInput.value.trim();
+        const listen = document.getElementById('listen').value.trim();
+        const isRunning = window.__ZYRLN_STATE__.running;
+
+        // Disable configuration section ONLY if running
+        const configInputs = configForm.querySelectorAll('input, textarea, button[type="submit"]');
+        configInputs.forEach(el => {
+            el.disabled = isRunning;
+            if (el.classList.contains('save-btn')) {
+                el.style.opacity = isRunning ? '0.5' : '1';
+            }
+        });
+
+        // Basic requirement: fields must not be empty
+        const isValid = url !== '' && key !== '' && listen !== '';
+
+        // Action buttons are disabled if inputs are missing, but no messages are shown
+        [runProbesBtn, exportMobileBtn].forEach(btn => {
+            if (btn) {
+                btn.disabled = !isValid;
+                btn.style.opacity = isValid ? '1' : '0.5';
+            }
+        });
+
+        // Install Certificate is special — it only needs the server to be ready, but we'll keep it enabled
+        if (btnRegenCA) {
+            btnRegenCA.disabled = false;
+            btnRegenCA.style.opacity = '1';
+        }
+    }
+
+    // Listen for input changes
+    ['fronted-appscript-url', 'auth-key', 'listen'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', validateInputs);
+    });
+
+    loadConfig().then(validateInputs);
     setInterval(updateStatus, 2000);
     updateStatus();
 });

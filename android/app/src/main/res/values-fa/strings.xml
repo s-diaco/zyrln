@@ -37,4 +37,5 @@
     <string name="btn_ok">تایید</string>
     <string name="btn_open_settings">باز کردن تنظیمات</string>
     <string name="btn_later">بعداً</string>
+    <string name="dialog_ca_reinstall_message">یک گواهینامه جدید ایجاد شد. شما حتماً باید اکنون آن را در تنظیمات گوشی (Security > Install from storage) مجدداً نصب کنید تا HTTPS کار کند.</string>
 </resources>

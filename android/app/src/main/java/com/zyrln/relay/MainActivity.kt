@@ -87,9 +87,9 @@ class MainActivity : AppCompatActivity() {
         prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
 
         binding.btnImportConfig.setOnClickListener { importConfig() }
-        binding.btnManualConfig.setOnClickListener { manualConfig() }
         binding.btnInstallCA.setOnClickListener { installCACert() }
         binding.btnLanguage.setOnClickListener { toggleLanguage() }
+        binding.btnTheme.setOnClickListener { toggleTheme() }
 
         if (Mobile.isRunning()) {
             activeUrl = prefs.getString("url", null)
@@ -97,6 +97,12 @@ class MainActivity : AppCompatActivity() {
         }
         updateUI(running = Mobile.isRunning())
         updateLanguageButton()
+
+        // Apply saved theme
+        val savedTheme = prefs.getInt("theme_mode", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        if (AppCompatDelegate.getDefaultNightMode() != savedTheme) {
+            AppCompatDelegate.setDefaultNightMode(savedTheme)
+        }
     }
 
     override fun onResume() {
@@ -132,6 +138,13 @@ class MainActivity : AppCompatActivity() {
         
         val appLocale: LocaleListCompat = LocaleListCompat.forLanguageTags(newLocale)
         AppCompatDelegate.setApplicationLocales(appLocale)
+    }
+
+    private fun toggleTheme() {
+        val isNight = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val nextMode = if (isNight) AppCompatDelegate.MODE_NIGHT_NO else AppCompatDelegate.MODE_NIGHT_YES
+        AppCompatDelegate.setDefaultNightMode(nextMode)
+        prefs.edit().putInt("theme_mode", nextMode).apply()
     }
 
     private fun updateLanguageButton() {
@@ -176,15 +189,6 @@ class MainActivity : AppCompatActivity() {
                 setPadding(p, p, p, p)
             }
 
-            val dot = View(this).apply {
-                layoutParams = LinearLayout.LayoutParams(
-                    (10 * dp).toInt(), (10 * dp).toInt()
-                ).apply { marginEnd = (14 * dp).toInt() }
-                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.status_dot)
-                backgroundTintList = ContextCompat.getColorStateList(this@MainActivity,
-                    if (isActive) R.color.dot_active else R.color.dot_inactive)
-            }
-
             val baseLabel = configLabel(url)
             val displayLabel = if (hostnames.count { it == baseLabel } > 1)
                 "$baseLabel …${key.takeLast(4)}" else baseLabel
@@ -195,6 +199,7 @@ class MainActivity : AppCompatActivity() {
                 textSize = 16f
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
+                textAlignment = View.TEXT_ALIGNMENT_VIEW_START
                 setTextColor(ContextCompat.getColor(this@MainActivity, R.color.title))
                 if (isActive) setTypeface(null, Typeface.BOLD)
             }
@@ -202,10 +207,11 @@ class MainActivity : AppCompatActivity() {
             val urlList = url.split(",").map { it.trim() }.filter { it.isNotEmpty() }
             val infoBtn = android.widget.ImageButton(this).apply {
                 visibility = if (urlList.size > 1) View.VISIBLE else View.GONE
-                setImageDrawable(ContextCompat.getDrawable(this@MainActivity, android.R.drawable.ic_menu_info_details))
+                setImageDrawable(ContextCompat.getDrawable(this@MainActivity, R.drawable.ic_info))
                 background = null
+                imageTintList = ContextCompat.getColorStateList(this@MainActivity, R.color.subtitle)
                 layoutParams = LinearLayout.LayoutParams(
-                    (32 * dp).toInt(), (32 * dp).toInt()
+                    (36 * dp).toInt(), (36 * dp).toInt()
                 ).apply { marginEnd = (4 * dp).toInt() }
             }
             infoBtn.setOnClickListener {
@@ -221,27 +227,31 @@ class MainActivity : AppCompatActivity() {
                     .show()
             }
 
-            val action = TextView(this).apply {
-                text = getString(if (isActive && running) R.string.btn_disconnect else R.string.btn_connect)
-                textSize = 13f
-                setTypeface(null, Typeface.BOLD)
-                setTextColor(ContextCompat.getColor(this@MainActivity,
-                    if (isActive && running) R.color.dot_active else R.color.accent))
+            val actionBtn = android.widget.ImageButton(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    (44 * dp).toInt(), (44 * dp).toInt()
+                ).apply { marginEnd = (12 * dp).toInt() }
+                setImageDrawable(ContextCompat.getDrawable(this@MainActivity,
+                    if (isActive && running) R.drawable.ic_pause else R.drawable.ic_play))
+                background = null
+                imageTintList = ContextCompat.getColorStateList(this@MainActivity,
+                    if (isActive && running) R.color.dot_active else R.color.accent)
+                isClickable = false
+                isFocusable = false
             }
 
             val deleteBtn = android.widget.ImageButton(this).apply {
                 layoutParams = LinearLayout.LayoutParams(
-                    (36 * dp).toInt(), (36 * dp).toInt()
+                    (40 * dp).toInt(), (40 * dp).toInt()
                 ).apply { marginStart = (8 * dp).toInt() }
-                setImageDrawable(ContextCompat.getDrawable(this@MainActivity, android.R.drawable.ic_menu_delete))
+                setImageDrawable(ContextCompat.getDrawable(this@MainActivity, R.drawable.ic_delete))
                 background = null
                 imageTintList = ContextCompat.getColorStateList(this@MainActivity, R.color.subtitle)
             }
 
-            row.addView(dot)
+            row.addView(actionBtn)
             row.addView(label)
             row.addView(infoBtn)
-            row.addView(action)
             row.addView(deleteBtn)
             card.addView(row)
 
@@ -303,66 +313,42 @@ class MainActivity : AppCompatActivity() {
 
     private fun importConfig() {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val text = clipboard.primaryClip?.getItemAt(0)?.getText()?.toString()?.trim()
-        if (text.isNullOrEmpty()) {
+        val rawText = clipboard.primaryClip?.getItemAt(0)?.getText()?.toString()?.trim()
+        if (rawText.isNullOrEmpty()) {
             Toast.makeText(this, R.string.msg_clipboard_empty, Toast.LENGTH_SHORT).show()
             return
         }
+
+        // Try to extract JSON if it's embedded in other text
+        val jsonStart = rawText.indexOf('{')
+        val jsonEnd = rawText.lastIndexOf('}')
+        val cleanText = if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
+            rawText.substring(jsonStart, jsonEnd + 1)
+        } else {
+            rawText
+        }
+
         try {
-            val json = JSONObject(text)
-            val url = json.getString("url").replace(Regex("[\\s]"), "")
-            val key = json.getString("key").trim()
-            if (url.isEmpty() || key.isEmpty()) throw JSONException("empty fields")
+            val json = JSONObject(cleanText)
+            val url = json.optString("url", json.optString("URL")).replace(Regex("[\\s]"), "")
+            val key = json.optString("key", json.optString("KEY")).trim()
+            
+            if (url.isEmpty() || key.isEmpty()) {
+                throw JSONException("Missing url or key fields")
+            }
+            
             if (saveConfig(url, key)) {
                 refreshList()
                 Toast.makeText(this, R.string.msg_config_saved_connect, Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(this, R.string.msg_already_exists, Toast.LENGTH_SHORT).show()
             }
-        } catch (e: JSONException) {
-            Toast.makeText(this, R.string.msg_invalid_config, Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Import failed: ${e.message}")
+            Toast.makeText(this, getString(R.string.msg_invalid_config), Toast.LENGTH_LONG).show()
         }
     }
 
-    private fun manualConfig() {
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            val dp = resources.displayMetrics.density
-            setPadding((24 * dp).toInt(), (16 * dp).toInt(), (24 * dp).toInt(), 0)
-        }
-
-        val urlInput = EditText(this).apply {
-            hint = getString(R.string.hint_url)
-            inputType = InputType.TYPE_TEXT_VARIATION_URI
-        }
-        val keyInput = EditText(this).apply {
-            hint = getString(R.string.hint_key)
-            inputType = InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
-        }
-
-        layout.addView(urlInput)
-        layout.addView(keyInput)
-
-        AlertDialog.Builder(this)
-            .setTitle(R.string.dialog_manual_title)
-            .setView(layout)
-            .setPositiveButton(R.string.btn_save) { _, _ ->
-                val url = urlInput.text.toString().trim().replace(Regex("[\\s]"), "")
-                val key = keyInput.text.toString().trim()
-                if (url.isNotEmpty() && key.isNotEmpty()) {
-                    if (saveConfig(url, key)) {
-                        refreshList()
-                        Toast.makeText(this, R.string.msg_config_saved, Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(this, R.string.msg_already_exists, Toast.LENGTH_SHORT).show()
-                    }
-                } else {
-                    Toast.makeText(this, R.string.msg_fields_empty, Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton(R.string.btn_cancel, null)
-            .show()
-    }
 
     private fun loadConfigs(): List<Pair<String, String>> {
         val raw = prefs.getString("configs", "[]") ?: "[]"
@@ -414,15 +400,15 @@ class MainActivity : AppCompatActivity() {
         certDir.mkdirs()
         val certFile = File(certDir, "ca.pem")
         val keyFile = File(certDir, "ca.key")
+        generateAndExportCert(certFile, keyFile)
+    }
 
-        if (!certFile.exists()) {
-            val err = Mobile.generateCA(certFile.absolutePath, keyFile.absolutePath)
-            if (err.isNotEmpty()) {
-                Toast.makeText(this, "CA generation failed: $err", Toast.LENGTH_LONG).show()
-                return
-            }
+    private fun generateAndExportCert(certFile: File, keyFile: File) {
+        val err = Mobile.generateCA(certFile.absolutePath, keyFile.absolutePath)
+        if (err.isNotEmpty()) {
+            Toast.makeText(this, "CA generation failed: $err", Toast.LENGTH_LONG).show()
+            return
         }
-
         createDocumentLauncher.launch("zyrln-ca.pem")
     }
 
@@ -438,7 +424,7 @@ class MainActivity : AppCompatActivity() {
 
             AlertDialog.Builder(this)
                 .setTitle(R.string.dialog_ca_title)
-                .setMessage(R.string.dialog_ca_message_generic)
+                .setMessage(R.string.dialog_ca_reinstall_message)
                 .setPositiveButton(R.string.btn_open_settings) { _, _ ->
                     startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
                 }

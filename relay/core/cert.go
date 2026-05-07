@@ -145,6 +145,11 @@ func LoadCA(certPath, keyPath string) (*CertAuthority, error) {
 	}, nil
 }
 
+// GetCertificate returns the underlying X.509 certificate.
+func (ca *CertAuthority) GetCertificate() *x509.Certificate {
+	return ca.cert
+}
+
 // CertForHost returns (or generates) a leaf TLS cert signed by the CA for host.
 func (ca *CertAuthority) CertForHost(host string) (*tls.Certificate, error) {
 	ca.mu.Lock()

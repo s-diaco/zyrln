@@ -23,6 +23,32 @@ body {
     overflow: hidden;
 }
 
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-dark);
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    border: 2px solid var(--bg-dark);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-primary);
+}
+
+/* Firefox Support */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.1) var(--bg-dark);
+}
+
 .app-wrapper {
     display: flex;
     flex-direction: column;
@@ -244,10 +270,34 @@ input:focus, textarea:focus {
 
 .input-with-action {
     display: flex;
-    gap: 8px;
+    position: relative;
 }
 
-.input-with-action input { flex: 1; }
+.input-with-action input {
+    flex: 1;
+    padding-right: 40px; /* Space for the icon */
+}
+
+.icon-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: color 0.2s;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-btn:hover {
+    color: var(--accent-primary);
+}
 
 .save-btn {
     margin-top: 12px;

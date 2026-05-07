@@ -37,8 +37,14 @@ func Start(appScriptURL, authKey, listenAddr, caCertPath, caKeyPath string) stri
 
 	ca, err := core.LoadCA(caCertPath, caKeyPath)
 	if err != nil {
-		lastErr = fmt.Sprintf("load CA: %s", err)
-		return lastErr
+		// If load fails, try to regenerate once.
+		if genErr := core.GenerateCA(caCertPath, caKeyPath); genErr == nil {
+			ca, err = core.LoadCA(caCertPath, caKeyPath)
+		}
+		if err != nil {
+			lastErr = fmt.Sprintf("load CA: %s", err)
+			return lastErr
+		}
 	}
 
 	client := core.NewHTTPClient(defaultTimeout)
@@ -91,6 +97,8 @@ func LastError() string {
 // GenerateCA generates a local CA cert + key at the given paths.
 // Returns an error string, or "" on success.
 func GenerateCA(certPath, keyPath string) string {
+	mu.Lock()
+	defer mu.Unlock()
 	if err := core.GenerateCA(certPath, keyPath); err != nil {
 		return err.Error()
 	}

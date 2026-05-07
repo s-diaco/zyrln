@@ -119,17 +119,6 @@
         app:cornerRadius="12dp"
         android:layout_marginBottom="12dp" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnManualConfig"
-        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:text="@string/btn_manual_config"
-        android:textSize="15sp"
-        android:textAllCaps="false"
-        app:cornerRadius="12dp"
-        android:layout_marginBottom="12dp" />
-
     <!-- Install CA -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnInstallCA"

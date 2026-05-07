@@ -113,6 +113,11 @@ func (p proxyConfig) dialContext(timeout time.Duration) func(context.Context, st
 	return proxyOnlyDialer(p.proxyHost, timeout)
 }
 
+var (
+	caCertFlag = flag.String("ca-cert", "certs/zyrln-ca.pem", "local CA certificate path for HTTPS proxy interception")
+	caKeyFlag  = flag.String("ca-key", "certs/zyrln-ca-key.pem", "local CA private key path for HTTPS proxy interception")
+)
+
 func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, `Zyrln — domain-fronting reachability tool
@@ -149,8 +154,6 @@ Flags:
 	listenFlag := flag.String("listen", "127.0.0.1:8085", "listen address for -serve-proxy")
 	exportConfigFlag := flag.Bool("export-config", false, "print config as JSON for importing into the Android app")
 	initCAFlag := flag.Bool("init-ca", false, "generate a local CA certificate for HTTPS proxy interception")
-	caCertFlag := flag.String("ca-cert", "certs/zyrln-ca.pem", "local CA certificate path for HTTPS proxy interception")
-	caKeyFlag := flag.String("ca-key", "certs/zyrln-ca-key.pem", "local CA private key path for HTTPS proxy interception")
 	frontRedirectsFlag := flag.Bool("front-redirects", false, "when a fronted probe gets a redirect, retry the Location using the front domain and encrypted Host override")
 	followRedirectsFlag := flag.Bool("follow-redirects", true, "follow HTTP redirects")
 	guiFlag := flag.Bool("gui", false, "start the browser-based GUI")
@@ -769,10 +772,17 @@ func startGUIServer(listenAddr, configPath, caCertPath, caKeyPath string) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		ca, _ := core.LoadCA(caCertPath, caKeyPath)
+		serial := "unknown"
+		if ca != nil && ca.GetCertificate() != nil {
+			serial = ca.GetCertificate().SerialNumber.String()
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{
 			"status":  "ok",
-			"message": "CA regenerated. Import certs/zyrln-ca.pem into your browser, then click Connect.",
+			"serial":  serial,
+			"message": "CA regenerated successfully.",
 		})
 	})
 
@@ -793,8 +803,17 @@ func startGUIServer(listenAddr, configPath, caCertPath, caKeyPath string) {
 
 		ca, err := core.LoadCA(caCertPath, caKeyPath)
 		if err != nil {
-			http.Error(w, "failed to load CA: "+err.Error(), http.StatusInternalServerError)
-			return
+			// Try to auto-generate if load fails
+			fmt.Printf("⚠️ CA certificate missing or invalid; automatically generating new CA...\n")
+			if genErr := core.GenerateCA(caCertPath, caKeyPath); genErr == nil {
+				ca, err = core.LoadCA(caCertPath, caKeyPath)
+			}
+			if err != nil {
+				http.Error(w, "failed to load CA: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			fmt.Printf("✅ CA generated successfully. Path: %s\n", caCertPath)
+			fmt.Printf("👉 NOTE: You must import this certificate into your browser for HTTPS to work.\n")
 		}
 
 		client := &http.Client{Timeout: 12 * time.Second} // Default client
@@ -862,10 +881,22 @@ func startGUIServer(listenAddr, configPath, caCertPath, caKeyPath string) {
 			http.Error(w, "CA certificate not found. Click Init first.", http.StatusNotFound)
 			return
 		}
-		w.Header().Set("Content-Type", "application/x-pem-file")
-		w.Header().Set("Content-Disposition", "attachment; filename=zyrln-ca.pem")
+		w.Header().Set("Content-Type", "application/x-x509-ca-cert")
+		w.Header().Set("Content-Disposition", "attachment; filename=\"zyrln-ca.pem\"")
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.Header().Set("Pragma", "no-cache")
+		w.Header().Set("Expires", "0")
 		w.Write(data)
 	})
+	http.HandleFunc("/api/open-certs-dir", func(w http.ResponseWriter, r *http.Request) {
+		dir := filepath.Dir(*caCertFlag)
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			os.MkdirAll(dir, 0755)
+		}
+		openPath(dir)
+		w.WriteHeader(http.StatusOK)
+	})
+
 
 	// Serve frontend from /platforms/desktop/gui
 	guiDir := filepath.Join("platforms", "desktop", "gui")
@@ -878,18 +909,23 @@ func startGUIServer(listenAddr, configPath, caCertPath, caKeyPath string) {
 }
 
 func openBrowser(url string) {
+	openPath(url)
+}
+
+func openPath(p string) {
 	var err error
 	switch runtime.GOOS {
 	case "linux":
-		err = exec.Command("xdg-open", url).Start()
+		err = exec.Command("xdg-open", p).Start()
 	case "windows":
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", p).Start()
 	case "darwin":
-		err = exec.Command("open", url).Start()
+		err = exec.Command("open", p).Start()
 	default:
 		err = fmt.Errorf("unsupported platform")
 	}
 	if err != nil {
-		fmt.Printf("Failed to open browser: %v\n", err)
+		fmt.Printf("Failed to open %s: %v\n", p, err)
 	}
 }
+
