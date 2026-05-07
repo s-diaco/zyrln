@@ -39,3 +39,6 @@ CLAUDE.md
 TODO.md
 .codex
 .agents
+*.apk
+*.exe
+zyrln-linux-amd64

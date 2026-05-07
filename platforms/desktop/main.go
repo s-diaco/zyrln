@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"embed"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/http/httptrace"
@@ -17,12 +19,16 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 	"zyrln/relay/core"
 )
 
 const defaultProxyAddress = "direct"
+
+//go:embed gui/*
+var embeddedGUI embed.FS
 
 type probe struct {
 	ID          string            `json:"id"`
@@ -704,7 +710,15 @@ var (
 	guiProxyLn        net.Listener
 	guiRequestCount   int64
 	guiProxyStartTime time.Time
+	guiMu             sync.Mutex
 )
+
+type guiProxyStarter func(listen string, urls []string, key string, ca *core.CertAuthority) (*http.Server, net.Listener, error)
+
+func defaultGUIProxyStarter(listen string, urls []string, key string, ca *core.CertAuthority) (*http.Server, net.Listener, error) {
+	client := &http.Client{Timeout: 12 * time.Second}
+	return core.StartProxy(listen, urls, "www.google.com", key, ca, client, 12*time.Second)
+}
 
 func startGUIServer(listenAddr, configPath, caCertPath, caKeyPath string) {
 	fmt.Printf("Starting Zyrln GUI at http://%s\n", listenAddr)
@@ -719,11 +733,25 @@ func startGUIServer(listenAddr, configPath, caCertPath, caKeyPath string) {
 		atomic.AddInt64(&guiRequestCount, 1)
 	}
 
-	// API Handlers
-	http.HandleFunc("/api/status", func(w http.ResponseWriter, r *http.Request) {
+	handler := newGUIHandler(configPath, caCertPath, caKeyPath, defaultGUIProxyStarter, openPath)
+	if err := http.ListenAndServe(listenAddr, handler); err != nil {
+		fmt.Fprintf(os.Stderr, "GUI server failed: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxyStarter, open func(string)) http.Handler {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/api/status", func(w http.ResponseWriter, r *http.Request) {
+		guiMu.Lock()
+		running := guiProxyServer != nil
+		started := guiProxyStartTime
+		guiMu.Unlock()
+
 		uptime := "00:00:00"
-		if !guiProxyStartTime.IsZero() {
-			d := time.Since(guiProxyStartTime).Round(time.Second)
+		if !started.IsZero() {
+			d := time.Since(started).Round(time.Second)
 			h := d / time.Hour
 			d -= h * time.Hour
 			m := d / time.Minute
@@ -732,14 +760,14 @@ func startGUIServer(listenAddr, configPath, caCertPath, caKeyPath string) {
 			uptime = fmt.Sprintf("%02d:%02d:%02d", h, m, s)
 		}
 		json.NewEncoder(w).Encode(map[string]any{
-			"running":  guiProxyServer != nil,
+			"running":  running,
 			"uptime":   uptime,
 			"requests": atomic.LoadInt64(&guiRequestCount),
-			"version":  "1.5.0-usability",
+			"version":  "1.5.1-pre1",
 		})
 	})
 
-	http.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			var cfg map[string]string
 			if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
@@ -751,22 +779,27 @@ func startGUIServer(listenAddr, configPath, caCertPath, caKeyPath string) {
 			for k, v := range cfg {
 				lines = append(lines, fmt.Sprintf("%s = %s", k, v))
 			}
-			os.WriteFile(configPath, []byte(strings.Join(lines, "\n")), 0644)
+			if err := os.WriteFile(configPath, []byte(strings.Join(lines, "\n")), 0644); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 		json.NewEncoder(w).Encode(loadConfig(configPath))
 	})
 
-	http.HandleFunc("/api/init-ca", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/init-ca", func(w http.ResponseWriter, r *http.Request) {
 		// Stop proxy if running — old CA in memory would cause signature mismatch
+		guiMu.Lock()
 		if guiProxyServer != nil {
-			guiProxyLn.Close()
-			guiProxyServer.Close()
+			_ = guiProxyLn.Close()
+			_ = guiProxyServer.Close()
 			guiProxyServer = nil
 			guiProxyLn = nil
 			guiProxyStartTime = time.Time{}
 		}
+		guiMu.Unlock()
 
 		if err := core.GenerateCA(caCertPath, caKeyPath); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -786,12 +819,14 @@ func startGUIServer(listenAddr, configPath, caCertPath, caKeyPath string) {
 		})
 	})
 
-
-	http.HandleFunc("/api/start", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/start", func(w http.ResponseWriter, r *http.Request) {
+		guiMu.Lock()
 		if guiProxyServer != nil {
+			guiMu.Unlock()
 			http.Error(w, "already running", http.StatusConflict)
 			return
 		}
+		defer guiMu.Unlock()
 
 		cfg := loadConfig(configPath)
 		urls := parseURLList(cfg["fronted-appscript-url"])
@@ -799,6 +834,14 @@ func startGUIServer(listenAddr, configPath, caCertPath, caKeyPath string) {
 		listen := cfg["listen"]
 		if listen == "" {
 			listen = "127.0.0.1:8085"
+		}
+		if len(urls) == 0 {
+			http.Error(w, "fronted-appscript-url is required", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(key) == "" {
+			http.Error(w, "auth-key is required", http.StatusBadRequest)
+			return
 		}
 
 		ca, err := core.LoadCA(caCertPath, caKeyPath)
@@ -816,8 +859,7 @@ func startGUIServer(listenAddr, configPath, caCertPath, caKeyPath string) {
 			fmt.Printf("👉 NOTE: You must import this certificate into your browser for HTTPS to work.\n")
 		}
 
-		client := &http.Client{Timeout: 12 * time.Second} // Default client
-		srv, ln, err := core.StartProxy(listen, urls, "www.google.com", key, ca, client, 12*time.Second)
+		srv, ln, err := startProxy(listen, urls, key, ca)
 		if err != nil {
 			http.Error(w, "start failed: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -829,20 +871,23 @@ func startGUIServer(listenAddr, configPath, caCertPath, caKeyPath string) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	http.HandleFunc("/api/stop", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/stop", func(w http.ResponseWriter, r *http.Request) {
+		guiMu.Lock()
 		if guiProxyServer == nil {
+			guiMu.Unlock()
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-		guiProxyLn.Close()
-		guiProxyServer.Close()
+		_ = guiProxyLn.Close()
+		_ = guiProxyServer.Close()
 		guiProxyServer = nil
 		guiProxyLn = nil
 		guiProxyStartTime = time.Time{}
+		guiMu.Unlock()
 		w.WriteHeader(http.StatusOK)
 	})
 
-	http.HandleFunc("/api/probes", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/probes", func(w http.ResponseWriter, r *http.Request) {
 		cfg := loadConfig(configPath)
 		urls := parseURLList(cfg["fronted-appscript-url"])
 		key := cfg["auth-key"]
@@ -865,7 +910,7 @@ func startGUIServer(listenAddr, configPath, caCertPath, caKeyPath string) {
 		json.NewEncoder(w).Encode(results)
 	})
 
-	http.HandleFunc("/api/export", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/export", func(w http.ResponseWriter, r *http.Request) {
 		cfg := loadConfig(configPath)
 		urls := cfg["fronted-appscript-url"]
 		key := cfg["auth-key"]
@@ -875,7 +920,7 @@ func startGUIServer(listenAddr, configPath, caCertPath, caKeyPath string) {
 		})
 	})
 
-	http.HandleFunc("/api/download-ca", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/download-ca", func(w http.ResponseWriter, r *http.Request) {
 		data, err := os.ReadFile(caCertPath)
 		if err != nil {
 			http.Error(w, "CA certificate not found. Click Init first.", http.StatusNotFound)
@@ -888,24 +933,23 @@ func startGUIServer(listenAddr, configPath, caCertPath, caKeyPath string) {
 		w.Header().Set("Expires", "0")
 		w.Write(data)
 	})
-	http.HandleFunc("/api/open-certs-dir", func(w http.ResponseWriter, r *http.Request) {
-		dir := filepath.Dir(*caCertFlag)
+	mux.HandleFunc("/api/open-certs-dir", func(w http.ResponseWriter, r *http.Request) {
+		dir := filepath.Dir(caCertPath)
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
 			os.MkdirAll(dir, 0755)
 		}
-		openPath(dir)
+		open(dir)
 		w.WriteHeader(http.StatusOK)
 	})
 
-
 	// Serve frontend from /platforms/desktop/gui
-	guiDir := filepath.Join("platforms", "desktop", "gui")
-	http.Handle("/", http.FileServer(http.Dir(guiDir)))
-
-	if err := http.ListenAndServe(listenAddr, nil); err != nil {
-		fmt.Fprintf(os.Stderr, "GUI server failed: %v\n", err)
-		os.Exit(1)
+	guiFS, err := fs.Sub(embeddedGUI, "gui")
+	if err != nil {
+		mux.Handle("/", http.FileServer(http.Dir(filepath.Join("platforms", "desktop", "gui"))))
+	} else {
+		mux.Handle("/", http.FileServer(http.FS(guiFS)))
 	}
+	return mux
 }
 
 func openBrowser(url string) {
@@ -928,4 +972,3 @@ func openPath(p string) {
 		fmt.Printf("Failed to open %s: %v\n", p, err)
 	}
 }
-

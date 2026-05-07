@@ -182,11 +182,11 @@ type coalescerResult struct {
 }
 
 type batchPayloadItem struct {
-	Method    string            `json:"m"`
-	URL       string            `json:"u"`
-	Headers   map[string]string `json:"h"`
-	Body      string            `json:"b,omitempty"`
-	Redirect  bool              `json:"r"`
+	Method   string            `json:"m"`
+	URL      string            `json:"u"`
+	Headers  map[string]string `json:"h"`
+	Body     string            `json:"b,omitempty"`
+	Redirect bool              `json:"r"`
 }
 
 type batchEnvelope struct {
@@ -306,6 +306,11 @@ func (c *Coalescer) run() {
 }
 
 func (c *Coalescer) flush(batch []*coalescerItem) {
+	if len(c.appScriptURLs) == 0 {
+		c.failAll(batch, fmt.Errorf("no Apps Script URLs configured"))
+		return
+	}
+
 	items := make([]batchPayloadItem, len(batch))
 	for i, item := range batch {
 		pi := batchPayloadItem{

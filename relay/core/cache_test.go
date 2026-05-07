@@ -55,6 +55,13 @@ func TestCacheableMaxAge_NotCacheable(t *testing.T) {
 	}
 }
 
+func TestCacheableMaxAge_StaticAssetWithoutCacheControl(t *testing.T) {
+	got := cacheableMaxAge("GET", map[string]string{}, map[string][]string{}, 200, "https://example.com/app.js")
+	if got != 5*time.Minute {
+		t.Errorf("static asset without Cache-Control: got %v, want 5m", got)
+	}
+}
+
 // --- responseCache ---
 
 func TestResponseCache_HitAndMiss(t *testing.T) {

@@ -67,9 +67,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 showToast('Configuration saved');
                 showLog('Configuration updated.');
                 validateInputs();
+            } else {
+                const errText = await response.text();
+                showLog(`Save failed: ${errText}`, 'error');
+                showToast('Save failed', 'error');
             }
         } catch (err) {
             showToast('Error saving configuration', 'error');
+            showLog(`Save failed: ${err.message}`, 'error');
         } finally {
             hideProgress();
         }
@@ -78,6 +83,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Proxy Control
     toggleProxyBtn.addEventListener('click', async () => {
         const isRunning = window.__ZYRLN_STATE__.running;
+        if (!isRunning && !hasSavedConfig()) {
+            showLog('Cannot start proxy: saved relay endpoint, auth key, and listen address are required.', 'error');
+            showToast('Saved configuration incomplete', 'error');
+            validateInputs();
+            return;
+        }
         const endpoint = isRunning ? '/api/stop' : '/api/start';
 
         showProgress(isRunning ? 'Stopping proxy...' : 'Starting proxy...');
@@ -297,6 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function updateStatus() {
         try {
             const response = await fetch('/api/status');
+            if (!response.ok) throw new Error(await response.text());
             const status = await response.json();
             window.__ZYRLN_STATE__.running = status.running;
 
@@ -317,7 +329,11 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Ensure inputs are disabled/enabled based on running state
             validateInputs();
-        } catch (err) { }
+        } catch (err) {
+            proxyStatusIndicator.classList.remove('online');
+            proxyStatusText.textContent = 'Status unavailable';
+            setButtonDisabled(toggleProxyBtn, true);
+        }
     }
 
     clearLogsBtn.onclick = () => {
@@ -336,9 +352,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function validateInputs() {
-        const url = document.getElementById('fronted-appscript-url').value.trim();
-        const key = authKeyInput.value.trim();
-        const listen = document.getElementById('listen').value.trim();
         const isRunning = window.__ZYRLN_STATE__.running;
 
         // Disable configuration section ONLY if running
@@ -351,21 +364,35 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Basic requirement: fields must not be empty
-        const isValid = url !== '' && key !== '' && listen !== '';
+        const hasRunnableConfig = hasSavedConfig();
 
-        // Action buttons are disabled if inputs are missing, but no messages are shown
+        setButtonDisabled(toggleProxyBtn, !isRunning && !hasRunnableConfig);
+
+        // These actions use saved config.env, not unsaved form edits.
         [runProbesBtn, exportMobileBtn].forEach(btn => {
             if (btn) {
-                btn.disabled = !isValid;
-                btn.style.opacity = isValid ? '1' : '0.5';
+                setButtonDisabled(btn, !hasRunnableConfig);
             }
         });
 
         // Install Certificate is special — it only needs the server to be ready, but we'll keep it enabled
         if (btnRegenCA) {
-            btnRegenCA.disabled = false;
-            btnRegenCA.style.opacity = '1';
+            setButtonDisabled(btnRegenCA, false);
         }
+    }
+
+    function hasSavedConfig() {
+        const config = window.__ZYRLN_STATE__.lastSavedConfig || {};
+        const url = (config['fronted-appscript-url'] || '').trim();
+        const key = (config['auth-key'] || '').trim();
+        const listen = (config.listen || '127.0.0.1:8085').trim();
+        return url !== '' && key !== '' && listen !== '';
+    }
+
+    function setButtonDisabled(btn, disabled) {
+        btn.disabled = disabled;
+        btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+        btn.style.opacity = disabled ? '0.5' : '1';
     }
 
     // Listen for input changes

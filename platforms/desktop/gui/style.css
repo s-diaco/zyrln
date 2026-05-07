@@ -75,15 +75,9 @@ body {
 .logo-icon {
     width: 36px;
     height: 36px;
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
     border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 900;
-    font-size: 1.2rem;
-    color: #fff;
-    box-shadow: 0 0 20px rgba(79, 172, 254, 0.3);
+    display: block;
+    box-shadow: 0 0 20px rgba(13, 27, 62, 0.45);
 }
 
 .logo-text {
@@ -138,6 +132,17 @@ body {
 .connect-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(79, 172, 254, 0.4);
+}
+
+.connect-btn:disabled {
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.connect-btn:disabled:hover {
+    transform: none;
+    box-shadow: none;
 }
 
 /* Dashboard Grid */
@@ -312,6 +317,14 @@ input:focus, textarea:focus {
 
 .save-btn:hover { background: rgba(255,255,255,0.1); }
 
+.save-btn:disabled {
+    cursor: not-allowed;
+}
+
+.save-btn:disabled:hover {
+    background: rgba(255,255,255,0.05);
+}
+
 /* Tools Section */
 .tools-list {
     display: flex;
@@ -343,6 +356,14 @@ input:focus, textarea:focus {
 }
 
 .action-btn:hover { background: var(--accent-primary); }
+
+.action-btn:disabled {
+    cursor: not-allowed;
+}
+
+.action-btn:disabled:hover {
+    background: rgba(255,255,255,0.05);
+}
 
 .stats-mini {
     margin-top: 20px;

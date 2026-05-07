@@ -44,6 +44,9 @@ func StartProxy(listenAddr string, appScriptURLs []string, frontDomain, authKey 
 }
 
 func listenAndServeProxy(listenAddr string, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) (*http.Server, error) {
+	if len(appScriptURLs) == 0 {
+		return nil, fmt.Errorf("no Apps Script URLs configured")
+	}
 	coal := NewCoalescer(client, appScriptURLs, frontDomain, authKey, timeout)
 	coal.Warmup()
 	return &http.Server{

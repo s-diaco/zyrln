@@ -93,6 +93,9 @@ func cacheableMaxAge(method string, reqHeaders map[string]string, respHeaders ma
 
 	ccs := respHeaders["cache-control"]
 	if len(ccs) == 0 {
+		if isStaticAssetURL(targetURL) {
+			return 5 * time.Minute
+		}
 		return 0
 	}
 	cc := ccs[0]
@@ -112,10 +115,6 @@ func cacheableMaxAge(method string, reqHeaders map[string]string, respHeaders ma
 	}
 
 	if maxAge <= 0 {
-		// Implicit cache for static assets without cache headers
-		if isStaticAssetURL(targetURL) {
-			return 5 * time.Minute
-		}
 		return 0
 	}
 	return time.Duration(maxAge) * time.Second

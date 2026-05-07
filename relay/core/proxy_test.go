@@ -104,6 +104,34 @@ func TestForwardHeaders_MultiValueTakesFirst(t *testing.T) {
 	}
 }
 
+func TestStartProxy_RejectsEmptyURLList(t *testing.T) {
+	_, _, err := StartProxy("127.0.0.1:0", nil, "www.google.com", "k", nil, http.DefaultClient, time.Second)
+	if err == nil {
+		t.Fatal("expected StartProxy to reject an empty Apps Script URL list")
+	}
+}
+
+func TestCoalescerFlush_RejectsEmptyURLList(t *testing.T) {
+	c := &Coalescer{}
+	batch := []*coalescerItem{
+		{result: make(chan coalescerResult, 1)},
+		{result: make(chan coalescerResult, 1)},
+	}
+
+	c.flush(batch)
+
+	for i, item := range batch {
+		select {
+		case got := <-item.result:
+			if got.err == nil {
+				t.Fatalf("item %d: expected error", i)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("item %d: timed out waiting for error", i)
+		}
+	}
+}
+
 // fakeAppScript builds a TLS test server that responds like Apps Script single-relay.
 func fakeAppScript(t *testing.T, body string, status int) *httptest.Server {
 	t.Helper()
