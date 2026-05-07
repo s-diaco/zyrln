@@ -13,8 +13,11 @@ import (
 	"net/http/httptrace"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 	"zyrln/relay/core"
 )
@@ -150,6 +153,8 @@ Flags:
 	caKeyFlag := flag.String("ca-key", "certs/zyrln-ca-key.pem", "local CA private key path for HTTPS proxy interception")
 	frontRedirectsFlag := flag.Bool("front-redirects", false, "when a fronted probe gets a redirect, retry the Location using the front domain and encrypted Host override")
 	followRedirectsFlag := flag.Bool("follow-redirects", true, "follow HTTP redirects")
+	guiFlag := flag.Bool("gui", false, "start the browser-based GUI")
+	guiListenFlag := flag.String("gui-listen", "127.0.0.1:8086", "listen address for the GUI")
 	flag.Parse()
 
 	// Apply config file values for flags not set on the CLI.
@@ -164,6 +169,11 @@ Flags:
 	if *repeatFlag < 1 {
 		fmt.Fprintln(os.Stderr, "repeat must be at least 1")
 		os.Exit(1)
+	}
+
+	if *guiFlag {
+		startGUIServer(*guiListenFlag, *configFlag, *caCertFlag, *caKeyFlag)
+		return
 	}
 
 	if *exportConfigFlag {
@@ -396,7 +406,7 @@ func frontedAppScriptProbes(rawURL, frontDomain, authKey, targetURL string) ([]p
 	if strings.TrimSpace(authKey) != "" {
 		payload := map[string]any{
 			"k": authKey, "m": "GET", "u": targetURL,
-			"h": map[string]string{"User-Agent": "zyrln/0.1"},
+			"h":  map[string]string{"User-Agent": "zyrln/0.1"},
 			"ct": nil, "r": true,
 		}
 		encoded, _ := json.Marshal(payload)
@@ -684,4 +694,202 @@ func loadConfig(path string) map[string]string {
 		}
 	}
 	return values
+}
+
+var (
+	guiProxyServer    *http.Server
+	guiProxyLn        net.Listener
+	guiRequestCount   int64
+	guiProxyStartTime time.Time
+)
+
+func startGUIServer(listenAddr, configPath, caCertPath, caKeyPath string) {
+	fmt.Printf("Starting Zyrln GUI at http://%s\n", listenAddr)
+
+	// Automatically open the browser
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		openBrowser("http://" + listenAddr)
+	}()
+
+	core.OnRequest = func(method, url string) {
+		atomic.AddInt64(&guiRequestCount, 1)
+	}
+
+	// API Handlers
+	http.HandleFunc("/api/status", func(w http.ResponseWriter, r *http.Request) {
+		uptime := "00:00:00"
+		if !guiProxyStartTime.IsZero() {
+			d := time.Since(guiProxyStartTime).Round(time.Second)
+			h := d / time.Hour
+			d -= h * time.Hour
+			m := d / time.Minute
+			d -= m * time.Minute
+			s := d / time.Second
+			uptime = fmt.Sprintf("%02d:%02d:%02d", h, m, s)
+		}
+		json.NewEncoder(w).Encode(map[string]any{
+			"running":  guiProxyServer != nil,
+			"uptime":   uptime,
+			"requests": atomic.LoadInt64(&guiRequestCount),
+			"version":  "1.5.0-usability",
+		})
+	})
+
+	http.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			var cfg map[string]string
+			if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			// Save to config.env
+			var lines []string
+			for k, v := range cfg {
+				lines = append(lines, fmt.Sprintf("%s = %s", k, v))
+			}
+			os.WriteFile(configPath, []byte(strings.Join(lines, "\n")), 0644)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		json.NewEncoder(w).Encode(loadConfig(configPath))
+	})
+
+	http.HandleFunc("/api/init-ca", func(w http.ResponseWriter, r *http.Request) {
+		// Stop proxy if running — old CA in memory would cause signature mismatch
+		if guiProxyServer != nil {
+			guiProxyLn.Close()
+			guiProxyServer.Close()
+			guiProxyServer = nil
+			guiProxyLn = nil
+			guiProxyStartTime = time.Time{}
+		}
+
+		if err := core.GenerateCA(caCertPath, caKeyPath); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "ok",
+			"message": "CA regenerated. Import certs/zyrln-ca.pem into your browser, then click Connect.",
+		})
+	})
+
+
+	http.HandleFunc("/api/start", func(w http.ResponseWriter, r *http.Request) {
+		if guiProxyServer != nil {
+			http.Error(w, "already running", http.StatusConflict)
+			return
+		}
+
+		cfg := loadConfig(configPath)
+		urls := parseURLList(cfg["fronted-appscript-url"])
+		key := cfg["auth-key"]
+		listen := cfg["listen"]
+		if listen == "" {
+			listen = "127.0.0.1:8085"
+		}
+
+		ca, err := core.LoadCA(caCertPath, caKeyPath)
+		if err != nil {
+			http.Error(w, "failed to load CA: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		client := &http.Client{Timeout: 12 * time.Second} // Default client
+		srv, ln, err := core.StartProxy(listen, urls, "www.google.com", key, ca, client, 12*time.Second)
+		if err != nil {
+			http.Error(w, "start failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		guiProxyServer = srv
+		guiProxyLn = ln
+		guiProxyStartTime = time.Now()
+		w.WriteHeader(http.StatusOK)
+	})
+
+	http.HandleFunc("/api/stop", func(w http.ResponseWriter, r *http.Request) {
+		if guiProxyServer == nil {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		guiProxyLn.Close()
+		guiProxyServer.Close()
+		guiProxyServer = nil
+		guiProxyLn = nil
+		guiProxyStartTime = time.Time{}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	http.HandleFunc("/api/probes", func(w http.ResponseWriter, r *http.Request) {
+		cfg := loadConfig(configPath)
+		urls := parseURLList(cfg["fronted-appscript-url"])
+		key := cfg["auth-key"]
+		target := cfg["target-url"]
+		if target == "" {
+			target = "https://www.gstatic.com/generate_204"
+		}
+
+		client := &http.Client{Timeout: 12 * time.Second}
+		probes := filterProbes(defaultProbes(), "")
+		if len(urls) > 0 {
+			fp, _ := frontedAppScriptProbes(urls[0], "www.google.com", key, target)
+			probes = append(probes, fp...)
+		}
+
+		results := make([]result, 0, len(probes))
+		for _, p := range probes {
+			results = append(results, runProbe(client, p, 1, 12*time.Second, false))
+		}
+		json.NewEncoder(w).Encode(results)
+	})
+
+	http.HandleFunc("/api/export", func(w http.ResponseWriter, r *http.Request) {
+		cfg := loadConfig(configPath)
+		urls := cfg["fronted-appscript-url"]
+		key := cfg["auth-key"]
+		json.NewEncoder(w).Encode(map[string]string{
+			"url": urls,
+			"key": key,
+		})
+	})
+
+	http.HandleFunc("/api/download-ca", func(w http.ResponseWriter, r *http.Request) {
+		data, err := os.ReadFile(caCertPath)
+		if err != nil {
+			http.Error(w, "CA certificate not found. Click Init first.", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/x-pem-file")
+		w.Header().Set("Content-Disposition", "attachment; filename=zyrln-ca.pem")
+		w.Write(data)
+	})
+
+	// Serve frontend from /platforms/desktop/gui
+	guiDir := filepath.Join("platforms", "desktop", "gui")
+	http.Handle("/", http.FileServer(http.Dir(guiDir)))
+
+	if err := http.ListenAndServe(listenAddr, nil); err != nil {
+		fmt.Fprintf(os.Stderr, "GUI server failed: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func openBrowser(url string) {
+	var err error
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = fmt.Errorf("unsupported platform")
+	}
+	if err != nil {
+		fmt.Printf("Failed to open browser: %v\n", err)
+	}
 }

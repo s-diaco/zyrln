@@ -28,10 +28,10 @@ type relayRequest struct {
 }
 
 type relayResponse struct {
-	Status  int               `json:"s,omitempty"`
-	Headers map[string]string `json:"h,omitempty"`
-	Body    string            `json:"b,omitempty"`
-	Error   string            `json:"e,omitempty"`
+	Status  int                 `json:"s,omitempty"`
+	Headers map[string][]string `json:"h,omitempty"`
+	Body    string              `json:"b,omitempty"`
+	Error   string              `json:"e,omitempty"`
 }
 
 func main() {
@@ -155,11 +155,9 @@ func handleRelay(w http.ResponseWriter, r *http.Request, client *http.Client, ke
 		return
 	}
 
-	headers := map[string]string{}
+	headers := map[string][]string{}
 	for hk, values := range resp.Header {
-		if len(values) > 0 {
-			headers[strings.ToLower(hk)] = values[0]
-		}
+		headers[strings.ToLower(hk)] = values
 	}
 
 	writeJSON(w, http.StatusOK, relayResponse{

@@ -13,6 +13,9 @@ import (
 	"time"
 )
 
+// OnRequest is an optional callback triggered for every proxied request.
+var OnRequest func(method, url string)
+
 // ServeProxy starts the relay HTTP+HTTPS MITM proxy and blocks until it exits.
 // appScriptURLs is tried in order; the first that succeeds is used for each request.
 func ServeProxy(listenAddr string, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) error {
@@ -80,9 +83,11 @@ func handleHTTP(w http.ResponseWriter, r *http.Request, coal *Coalescer) {
 		return
 	}
 
-	for k, v := range relayResp.Headers {
+	for k, vs := range relayResp.Headers {
 		if !skipResponseHeader(k) {
-			w.Header().Set(k, v)
+			for _, v := range vs {
+				w.Header().Add(k, v)
+			}
 		}
 	}
 	w.WriteHeader(relayResp.Status)
@@ -173,9 +178,11 @@ func handleConnect(w http.ResponseWriter, r *http.Request, coal *Coalescer, ca *
 			Body:          io.NopCloser(bytes.NewReader(relayResp.Body)),
 			ContentLength: int64(len(relayResp.Body)),
 		}
-		for k, v := range relayResp.Headers {
+		for k, vs := range relayResp.Headers {
 			if !skipResponseHeader(k) {
-				resp.Header.Set(k, v)
+				for _, v := range vs {
+					resp.Header.Add(k, v)
+				}
 			}
 		}
 		if strings.EqualFold(req.Header.Get("Connection"), "close") {
@@ -224,7 +231,8 @@ func forwardHeaders(h http.Header) map[string]string {
 func skipRequestHeader(key string) bool {
 	switch strings.ToLower(key) {
 	case "host", "connection", "content-length", "proxy-connection",
-		"proxy-authorization", "transfer-encoding", "accept-encoding":
+		"proxy-authorization", "transfer-encoding", "accept-encoding",
+		"x-forwarded-for", "x-real-ip", "via":
 		return true
 	}
 	return false

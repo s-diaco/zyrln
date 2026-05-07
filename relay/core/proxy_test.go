@@ -110,9 +110,10 @@ func fakeAppScript(t *testing.T, body string, status int) *httptest.Server {
 	return httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := workerResponse{
 			Status:  status,
-			Headers: map[string]string{"content-type": "text/plain"},
+			Headers: map[string]any{"content-type": []string{"text/plain"}},
 			Body:    base64.StdEncoding.EncodeToString([]byte(body)),
 		}
+		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
 	}))
 }

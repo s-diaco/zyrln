@@ -17,17 +17,24 @@ import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.EditText
+import android.text.InputType
 import android.widget.Toast
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
+import androidx.core.os.LocaleListCompat
 import com.zyrln.relay.databinding.ActivityMainBinding
 import mobile.Mobile
+import android.net.Uri
 import java.io.File
+import java.io.FileOutputStream
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -47,6 +54,12 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.error_vpn_permission, Toast.LENGTH_SHORT).show()
             refreshList(running = false)
         }
+    }
+
+    private val createDocumentLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/x-x509-ca-cert")
+    ) { uri ->
+        uri?.let { saveCertToUri(it) }
     }
 
     private val startedReceiver = object : BroadcastReceiver() {
@@ -76,12 +89,14 @@ class MainActivity : AppCompatActivity() {
         binding.btnImportConfig.setOnClickListener { importConfig() }
         binding.btnManualConfig.setOnClickListener { manualConfig() }
         binding.btnInstallCA.setOnClickListener { installCACert() }
+        binding.btnLanguage.setOnClickListener { toggleLanguage() }
 
         if (Mobile.isRunning()) {
             activeUrl = prefs.getString("url", null)
             activeKey = prefs.getString("key", null)
         }
         updateUI(running = Mobile.isRunning())
+        updateLanguageButton()
     }
 
     override fun onResume() {
@@ -111,6 +126,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun toggleLanguage() {
+        val currentLocale = AppCompatDelegate.getApplicationLocales()[0]?.language ?: Locale.getDefault().language
+        val newLocale = if (currentLocale == "fa") "en" else "fa"
+        
+        val appLocale: LocaleListCompat = LocaleListCompat.forLanguageTags(newLocale)
+        AppCompatDelegate.setApplicationLocales(appLocale)
+    }
+
+    private fun updateLanguageButton() {
+        val currentLocale = AppCompatDelegate.getApplicationLocales()[0]?.language ?: Locale.getDefault().language
+        binding.btnLanguage.text = if (currentLocale == "fa") "EN" else "FA"
+    }
+
     private fun refreshList(running: Boolean = Mobile.isRunning()) {
         val configs = loadConfigs()
         binding.configList.removeAllViews()
@@ -135,9 +163,10 @@ class MainActivity : AppCompatActivity() {
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { bottomMargin = (10 * dp).toInt() }
+                ).apply { bottomMargin = (12 * dp).toInt() }
                 radius = 12 * dp
-                cardElevation = 2 * dp
+                cardElevation = 0f
+                setCardBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.surface))
             }
 
             val row = LinearLayout(this).apply {
@@ -166,6 +195,7 @@ class MainActivity : AppCompatActivity() {
                 textSize = 16f
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.title))
                 if (isActive) setTypeface(null, Typeface.BOLD)
             }
 
@@ -185,17 +215,18 @@ class MainActivity : AppCompatActivity() {
                     "${i + 1}. $short"
                 }.joinToString("\n")
                 AlertDialog.Builder(this@MainActivity)
-                    .setTitle("${urlList.size} Apps Script URLs")
+                    .setTitle(R.string.btn_ok) // Reusing OK as placeholder for title
                     .setMessage(lines)
-                    .setPositiveButton("OK", null)
+                    .setPositiveButton(R.string.btn_ok, null)
                     .show()
             }
 
             val action = TextView(this).apply {
-                text = if (isActive && running) "Disconnect" else "Connect"
+                text = getString(if (isActive && running) R.string.btn_disconnect else R.string.btn_connect)
                 textSize = 13f
+                setTypeface(null, Typeface.BOLD)
                 setTextColor(ContextCompat.getColor(this@MainActivity,
-                    if (isActive && running) R.color.dot_active else android.R.color.darker_gray))
+                    if (isActive && running) R.color.dot_active else R.color.accent))
             }
 
             val deleteBtn = android.widget.ImageButton(this).apply {
@@ -204,6 +235,7 @@ class MainActivity : AppCompatActivity() {
                 ).apply { marginStart = (8 * dp).toInt() }
                 setImageDrawable(ContextCompat.getDrawable(this@MainActivity, android.R.drawable.ic_menu_delete))
                 background = null
+                imageTintList = ContextCompat.getColorStateList(this@MainActivity, R.color.subtitle)
             }
 
             row.addView(dot)
@@ -224,17 +256,17 @@ class MainActivity : AppCompatActivity() {
 
             deleteBtn.setOnClickListener {
                 AlertDialog.Builder(this)
-                    .setTitle("Remove Config")
+                    .setTitle(R.string.dialog_remove_title)
                     .setMessage(if (isActive && running)
-                        "\"$displayLabel\" is currently connected. Disconnect and remove it?"
+                        getString(R.string.dialog_remove_active, displayLabel)
                     else
-                        "Remove \"$displayLabel\"?")
-                    .setPositiveButton("Remove") { _, _ ->
+                        getString(R.string.dialog_remove_inactive, displayLabel))
+                    .setPositiveButton(R.string.btn_remove) { _, _ ->
                         if (isActive && running) stopVpn()
                         deleteConfig(url, key)
                         refreshList(running = Mobile.isRunning())
                     }
-                    .setNegativeButton("Cancel", null)
+                    .setNegativeButton(R.string.btn_cancel, null)
                     .show()
             }
 
@@ -273,7 +305,7 @@ class MainActivity : AppCompatActivity() {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val text = clipboard.primaryClip?.getItemAt(0)?.getText()?.toString()?.trim()
         if (text.isNullOrEmpty()) {
-            Toast.makeText(this, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.msg_clipboard_empty, Toast.LENGTH_SHORT).show()
             return
         }
         try {
@@ -283,12 +315,12 @@ class MainActivity : AppCompatActivity() {
             if (url.isEmpty() || key.isEmpty()) throw JSONException("empty fields")
             if (saveConfig(url, key)) {
                 refreshList()
-                Toast.makeText(this, "Config saved — tap it to connect", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.msg_config_saved_connect, Toast.LENGTH_SHORT).show()
             } else {
-                Toast.makeText(this, "Already in list", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.msg_already_exists, Toast.LENGTH_SHORT).show()
             }
         } catch (e: JSONException) {
-            Toast.makeText(this, "Invalid config. Paste a JSON like {\"url\":\"...\",\"key\":\"...\"}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, R.string.msg_invalid_config, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -314,21 +346,21 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle(R.string.dialog_manual_title)
             .setView(layout)
-            .setPositiveButton("Save") { _, _ ->
+            .setPositiveButton(R.string.btn_save) { _, _ ->
                 val url = urlInput.text.toString().trim().replace(Regex("[\\s]"), "")
                 val key = keyInput.text.toString().trim()
                 if (url.isNotEmpty() && key.isNotEmpty()) {
                     if (saveConfig(url, key)) {
                         refreshList()
-                        Toast.makeText(this, "Config saved", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, R.string.msg_config_saved, Toast.LENGTH_SHORT).show()
                     } else {
-                        Toast.makeText(this, "Already in list", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, R.string.msg_already_exists, Toast.LENGTH_SHORT).show()
                     }
                 } else {
-                    Toast.makeText(this, "Fields cannot be empty", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, R.string.msg_fields_empty, Toast.LENGTH_SHORT).show()
                 }
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(R.string.btn_cancel, null)
             .show()
     }
 
@@ -391,23 +423,30 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        val fileName = "zyrln-ca.pem"
-        try {
-            val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            downloads.mkdirs()
-            certFile.copyTo(File(downloads, fileName), overwrite = true)
-            Toast.makeText(this, getString(R.string.msg_ca_saved, fileName), Toast.LENGTH_LONG).show()
-        } catch (e: Exception) {
-            Log.w("MainActivity", "copy to Downloads failed: ${e.message}")
-        }
+        createDocumentLauncher.launch("zyrln-ca.pem")
+    }
 
-        AlertDialog.Builder(this)
-            .setTitle(R.string.dialog_ca_title)
-            .setMessage(getString(R.string.dialog_ca_message, "Downloads/$fileName"))
-            .setPositiveButton("Open Settings") { _, _ ->
-                startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
+    private fun saveCertToUri(uri: Uri) {
+        val certFile = File(File(filesDir, "certs"), "ca.pem")
+        try {
+            contentResolver.openOutputStream(uri)?.use { output ->
+                certFile.inputStream().use { input ->
+                    input.copyTo(output)
+                }
             }
-            .setNegativeButton("Later", null)
-            .show()
+            Toast.makeText(this, R.string.msg_cert_saved_success, Toast.LENGTH_SHORT).show()
+
+            AlertDialog.Builder(this)
+                .setTitle(R.string.dialog_ca_title)
+                .setMessage(R.string.dialog_ca_message_generic)
+                .setPositiveButton(R.string.btn_open_settings) { _, _ ->
+                    startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
+                }
+                .setNegativeButton(R.string.btn_later, null)
+                .show()
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to save cert: ${e.message}")
+            Toast.makeText(this, "Save failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 }

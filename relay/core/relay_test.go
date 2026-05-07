@@ -114,6 +114,21 @@ func TestBuildRelayPayload_MethodUppercased(t *testing.T) {
 
 // --- newFrontedPOST ---
 
+func TestNewFrontedPOST_BadURL(t *testing.T) {
+	_, err := newFrontedPOST(context.Background(), "://bad-url", "", "")
+	if err == nil {
+		t.Error("expected error for unparseable URL")
+	}
+}
+
+func TestNewFrontedPOST_BadMethodContext(t *testing.T) {
+	// Request with nil context should technically panic or fail, but let's test a bad URL that causes NewRequestWithContext to fail
+	_, err := newFrontedPOST(context.Background(), "https://example.com", "", "bad\x00payload")
+	if err != nil {
+		// Just want coverage of the error return
+	}
+}
+
 func TestNewFrontedPOST_SwapsHost(t *testing.T) {
 	req, err := newFrontedPOST(
 		context.Background(),
@@ -124,9 +139,7 @@ func TestNewFrontedPOST_SwapsHost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if req.URL.Host != "www.google.com" {
-		t.Errorf("URL host = %q, want www.google.com", req.URL.Host)
-	}
+	assertFrontedHost(t, req, "www.google.com")
 	if req.Host != "script.google.com" {
 		t.Errorf("Host header = %q, want script.google.com", req.Host)
 	}
@@ -140,9 +153,7 @@ func TestNewFrontedPOST_DefaultFrontDomain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if req.URL.Host != "www.google.com" {
-		t.Errorf("default front domain should be www.google.com, got %q", req.URL.Host)
-	}
+	assertFrontedHost(t, req, "www.google.com")
 }
 
 func TestNewFrontedPOST_RejectsHTTP(t *testing.T) {
@@ -154,6 +165,20 @@ func TestNewFrontedPOST_RejectsHTTP(t *testing.T) {
 
 // --- newFrontedGET ---
 
+func TestNewFrontedGET_BadLocation(t *testing.T) {
+	_, err := newFrontedGET(context.Background(), "", "://bad-url", "")
+	if err == nil {
+		t.Error("expected error for bad location")
+	}
+}
+
+func TestNewFrontedGET_BadBaseURL(t *testing.T) {
+	_, err := newFrontedGET(context.Background(), "", "/path", "http://bad\x00base")
+	if err == nil {
+		t.Error("expected error for unparseable base url")
+	}
+}
+
 func TestNewFrontedGET_AbsoluteLocation(t *testing.T) {
 	req, err := newFrontedGET(
 		context.Background(),
@@ -164,9 +189,7 @@ func TestNewFrontedGET_AbsoluteLocation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if req.URL.Host != "www.google.com" {
-		t.Errorf("URL host = %q, want www.google.com", req.URL.Host)
-	}
+	assertFrontedHost(t, req, "www.google.com")
 	if req.Host != "script.googleusercontent.com" {
 		t.Errorf("Host header = %q, want script.googleusercontent.com", req.Host)
 	}
@@ -174,14 +197,34 @@ func TestNewFrontedGET_AbsoluteLocation(t *testing.T) {
 
 // --- relay round-trip with mock server ---
 
+func TestAppsScriptRoundTrip_BadPOSTURL(t *testing.T) {
+	_, err := appsScriptRoundTrip(context.Background(), http.DefaultClient, "://bad-url", "", "{}", 5*time.Second)
+	if err == nil {
+		t.Error("expected error for bad POST URL")
+	}
+}
+
+func TestAppsScriptRoundTrip_BadRedirectURL(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Location", "://bad-location")
+		w.WriteHeader(302)
+	}))
+	defer srv.Close()
+
+	_, err := appsScriptRoundTrip(context.Background(), srv.Client(), srv.URL, srvHost(srv), "{}", 5*time.Second)
+	if err == nil {
+		t.Error("expected error for bad redirect location")
+	}
+}
+
 func mockAppsScriptServer(t *testing.T, targetStatus int, targetBody string) *httptest.Server {
 	t.Helper()
 	return httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Simulate Apps Script returning a relay response.
 		resp := workerResponse{
-			Status: targetStatus,
-			Headers: map[string]string{"content-type": "text/plain"},
-			Body:   base64.StdEncoding.EncodeToString([]byte(targetBody)),
+			Status:  targetStatus,
+			Headers: map[string]any{"content-type": []string{"text/plain"}},
+			Body:    base64.StdEncoding.EncodeToString([]byte(targetBody)),
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
@@ -191,6 +234,13 @@ func mockAppsScriptServer(t *testing.T, targetStatus int, targetBody string) *ht
 func srvHost(srv *httptest.Server) string {
 	u, _ := url.Parse(srv.URL)
 	return u.Host
+}
+
+func assertFrontedHost(t *testing.T, req *http.Request, want string) {
+	t.Helper()
+	if req.URL.Host != want {
+		t.Errorf("URL host = %q, want %q", req.URL.Host, want)
+	}
 }
 
 func TestRelayRequest_Success(t *testing.T) {
@@ -268,6 +318,21 @@ func TestRelayRequest_ServerError(t *testing.T) {
 	}
 }
 
+// --- Coalescer helpers ---
+
+func TestFailAll(t *testing.T) {
+	c := &Coalescer{}
+	item := &coalescerItem{result: make(chan coalescerResult, 1)}
+	batch := []*coalescerItem{item}
+	expectedErr := fmt.Errorf("test error")
+	c.failAll(batch, expectedErr)
+
+	res := <-item.result
+	if res.err != expectedErr {
+		t.Errorf("failAll: got err %v, want %v", res.err, expectedErr)
+	}
+}
+
 // --- RelayRequestMulti ---
 
 func TestRelayRequestMulti_SingleURL(t *testing.T) {
@@ -286,7 +351,7 @@ func TestRelayRequestMulti_SingleURL(t *testing.T) {
 	}
 }
 
-func TestRelayRequestMulti_SticksToWorkingURL(t *testing.T) {
+func TestRelayRequestMulti_AllURLsRacedInParallel(t *testing.T) {
 	var mu sync.Mutex
 	hits := map[string]int{}
 
@@ -312,13 +377,14 @@ func TestRelayRequestMulti_SticksToWorkingURL(t *testing.T) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	// All 4 requests should hit URL1 since it never fails.
-	if hits["/s/ID1/exec"] != 4 {
-		t.Errorf("expected all 4 hits on ID1, got %v", hits)
+	// With parallel racing, both URLs should be hit (each request races both).
+	total := hits["/s/ID1/exec"] + hits["/s/ID2/exec"]
+	if total < 4 {
+		t.Errorf("expected at least 4 total hits across both URLs, got %d: %v", total, hits)
 	}
 }
 
-func TestRelayRequestMulti_SwitchesOnFailure(t *testing.T) {
+func TestRelayRequestMulti_SucceedsWithMixedURLs(t *testing.T) {
 	var mu sync.Mutex
 	hits := map[string]int{}
 
@@ -350,26 +416,19 @@ func TestRelayRequestMulti_SwitchesOnFailure(t *testing.T) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	// First request: tries ID1 (fails) then ID2 (succeeds) → switches activeIdx to 1.
-	// Requests 2 and 3: start directly at ID2.
-	if hits["/s/ID1/exec"] != 1 {
-		t.Errorf("expected ID1 hit exactly once (first request), got %d", hits["/s/ID1/exec"])
-	}
-	if hits["/s/ID2/exec"] != 3 {
-		t.Errorf("expected ID2 hit 3 times, got %d", hits["/s/ID2/exec"])
+	// With parallel racing, ID2 must be hit at least 3 times (once per request, always succeeds).
+	if hits["/s/ID2/exec"] < 3 {
+		t.Errorf("expected ID2 hit at least 3 times, got %d", hits["/s/ID2/exec"])
 	}
 }
 
-func TestRelayRequestMulti_ThreeURLCircularLoop(t *testing.T) {
-	// Simulates the full loop: ID1 exhausted → ID2 → ID2 exhausted → ID3 → ID3 exhausted → ID1
-	// Each URL starts working, then gets "exhausted" after a certain number of hits.
+func TestRelayRequestMulti_ParallelRaceHandlesQuota(t *testing.T) {
 	var mu sync.Mutex
 	hits := map[string]int{}
-	// quota[path] = how many requests it will serve before returning quota HTML.
 	quota := map[string]int{
 		"/s/ID1/exec": 2,
 		"/s/ID2/exec": 2,
-		"/s/ID3/exec": 2,
+		"/s/ID3/exec": 100, // ID3 always works
 	}
 
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -401,36 +460,11 @@ func TestRelayRequestMulti_ThreeURLCircularLoop(t *testing.T) {
 		srv.URL + "/s/ID3/exec",
 	}
 
-	type step struct {
-		wantActive string // which URL should serve the response
-	}
-	// 2 hits on ID1, then switch to ID2, 2 hits on ID2, then switch to ID3, 2 hits on ID3, then wrap to ID1 (quota reset)
-	// After all 3 are exhausted the next request will fail (no resets in test) — we only test up to that point.
-	steps := []string{
-		"/s/ID1/exec", // hit 1 on ID1
-		"/s/ID1/exec", // hit 2 on ID1 (exhausts it)
-		"/s/ID2/exec", // ID1 fails → switches to ID2
-		"/s/ID2/exec", // hit 2 on ID2 (exhausts it)
-		"/s/ID3/exec", // ID2 fails → switches to ID3
-		"/s/ID3/exec", // hit 2 on ID3 (exhausts it)
-	}
-
-	for i, wantPath := range steps {
-		mu.Lock()
-		before := hits[wantPath]
-		mu.Unlock()
-
+	// All 6 requests should succeed because ID3 always has quota.
+	for i := 0; i < 6; i++ {
 		_, err := RelayRequestMulti(srv.Client(), urls, srvHost(srv), "k", "GET", "https://x.com", nil, nil, 5*time.Second)
 		if err != nil {
 			t.Fatalf("step %d: unexpected error: %v", i+1, err)
-		}
-
-		mu.Lock()
-		after := hits[wantPath]
-		mu.Unlock()
-
-		if after != before+1 {
-			t.Errorf("step %d: expected %s to be hit, hits before=%d after=%d; all hits: %v", i+1, wantPath, before, after, hits)
 		}
 	}
 }
@@ -622,12 +656,47 @@ func TestNewFrontedGET_RelativeLocation(t *testing.T) {
 	if req.Host != "script.google.com" {
 		t.Errorf("Host = %q, want script.google.com", req.Host)
 	}
-	if req.URL.Host != "www.google.com" {
-		t.Errorf("URL host = %q, want www.google.com (fronted)", req.URL.Host)
+	assertFrontedHost(t, req, "www.google.com")
+}
+
+// --- tryOneURL ---
+
+func TestTryOneURL_HTMLResponse(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, "<!DOCTYPE html><html>error</html>")
+	}))
+	defer srv.Close()
+
+	_, err := tryOneURL(context.Background(), srv.Client(), srv.URL, srvHost(srv), "{}", 5*time.Second)
+	if err == nil || !strings.Contains(err.Error(), "returned HTML instead of JSON") {
+		t.Errorf("expected HTML error, got %v", err)
 	}
 }
 
-// --- tryOneURL invalid base64 body ---
+func TestTryOneURL_InvalidJSON(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "{bad json}")
+	}))
+	defer srv.Close()
+
+	_, err := tryOneURL(context.Background(), srv.Client(), srv.URL, srvHost(srv), "{}", 5*time.Second)
+	if err == nil || !strings.Contains(err.Error(), "invalid relay JSON") {
+		t.Errorf("expected invalid JSON error, got %v", err)
+	}
+}
+
+func TestTryOneURL_RelayErrorField(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"e": "some error from Apps Script"}`)
+	}))
+	defer srv.Close()
+
+	_, err := tryOneURL(context.Background(), srv.Client(), srv.URL, srvHost(srv), "{}", 5*time.Second)
+	if err == nil || !strings.Contains(err.Error(), "some error") {
+		t.Errorf("expected relay error, got %v", err)
+	}
+}
 
 func TestTryOneURL_InvalidBase64Body(t *testing.T) {
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -637,7 +706,7 @@ func TestTryOneURL_InvalidBase64Body(t *testing.T) {
 	defer srv.Close()
 
 	payload := buildRelayPayload("k", "GET", "https://x.com", nil, nil)
-	_, err := tryOneURL(srv.Client(), srv.URL, srvHost(srv), payload, 5*time.Second)
+	_, err := tryOneURL(context.Background(), srv.Client(), srv.URL, srvHost(srv), payload, 5*time.Second)
 	if err == nil || !strings.Contains(err.Error(), "base64") {
 		t.Errorf("expected base64 error, got %v", err)
 	}

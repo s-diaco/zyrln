@@ -4,16 +4,38 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:padding="24dp"
+    android:background="@color/background">
 
-    <TextView
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Zyrln"
-        android:textSize="28sp"
-        android:textStyle="bold"
-        android:textColor="@color/title"
-        android:layout_marginBottom="4dp" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="4dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Zyrln"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:textColor="@color/title" />
+
+        <TextView
+            android:id="@+id/btnLanguage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="FA"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/accent"
+            android:padding="8dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true" />
+    </LinearLayout>
 
     <TextView
         android:layout_width="wrap_content"
@@ -21,21 +43,22 @@
         android:text="Domain-fronted relay via Google Apps Script"
         android:textSize="13sp"
         android:textColor="@color/subtitle"
-        android:layout_marginBottom="20dp" />
+        android:layout_marginBottom="24dp" />
 
     <!-- Status card -->
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="20dp"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="2dp">
+        android:layout_marginBottom="24dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp"
+        app:cardBackgroundColor="@color/surface">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:padding="16dp"
+            android:padding="20dp"
             android:gravity="center_vertical">
 
             <View
@@ -43,7 +66,7 @@
                 android:layout_width="12dp"
                 android:layout_height="12dp"
                 android:background="@drawable/status_dot"
-                android:layout_marginEnd="12dp" />
+                android:layout_marginEnd="16dp" />
 
             <TextView
                 android:id="@+id/statusText"
@@ -51,8 +74,9 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/status_stopped"
-                android:textSize="15sp"
-                android:textStyle="bold" />
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/title" />
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
@@ -62,7 +86,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginBottom="12dp"
+        android:layout_marginBottom="16dp"
         android:visibility="gone">
 
         <LinearLayout
@@ -78,39 +102,44 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginBottom="12dp"
+        android:layout_marginBottom="16dp"
         android:gravity="center"
         android:text="@string/empty_configs"
-        android:textSize="14sp"
+        android:textSize="15sp"
         android:textColor="@color/subtitle"
         android:visibility="visible" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnImportConfig"
         android:layout_width="match_parent"
-        android:layout_height="52dp"
+        android:layout_height="56dp"
         android:text="@string/btn_import_config"
         android:textSize="15sp"
-        android:layout_marginBottom="8dp" />
+        android:textAllCaps="false"
+        app:cornerRadius="12dp"
+        android:layout_marginBottom="12dp" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnManualConfig"
-        style="@style/Widget.MaterialComponents.Button.TextButton"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
+        android:layout_height="52dp"
         android:text="@string/btn_manual_config"
-        android:textSize="14sp"
+        android:textSize="15sp"
+        android:textAllCaps="false"
+        app:cornerRadius="12dp"
         android:layout_marginBottom="12dp" />
 
     <!-- Install CA -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnInstallCA"
-        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
         android:layout_width="match_parent"
         android:layout_height="48dp"
         android:text="@string/btn_install_ca"
         android:textSize="14sp"
-        android:layout_marginBottom="6dp" />
+        android:textAllCaps="false"
+        android:layout_marginBottom="8dp" />
 
     <TextView
         android:layout_width="match_parent"

@@ -8,13 +8,13 @@ import (
 )
 
 const (
-	cacheMaxEntries = 256
-	cacheMaxBytes   = 16 * 1024 * 1024 // 16 MB total across all entries
+	cacheMaxEntries = 512
+	cacheMaxBytes   = 32 * 1024 * 1024 // 32 MB total across all entries
 )
 
 type cacheEntry struct {
 	status  int
-	headers map[string]string
+	headers map[string][]string
 	body    []byte
 	expiry  time.Time
 }
@@ -80,21 +80,22 @@ func (rc *responseCache) set(key string, e *cacheEntry) {
 //   - No Set-Cookie on the response
 //   - Cache-Control must not contain no-store, no-cache, or private
 //   - Cache-Control must have max-age > 0
-func cacheableMaxAge(method string, reqHeaders, respHeaders map[string]string, status int) time.Duration {
+func cacheableMaxAge(method string, reqHeaders map[string]string, respHeaders map[string][]string, status int, targetURL string) time.Duration {
 	if method != "GET" || status != 200 {
 		return 0
 	}
 	if reqHeaders["Authorization"] != "" {
 		return 0
 	}
-	if respHeaders["Set-Cookie"] != "" {
+	if len(respHeaders["set-cookie"]) > 0 {
 		return 0
 	}
 
-	cc := respHeaders["Cache-Control"]
-	if cc == "" {
+	ccs := respHeaders["cache-control"]
+	if len(ccs) == 0 {
 		return 0
 	}
+	cc := ccs[0]
 
 	maxAge := -1
 	for _, part := range strings.Split(cc, ",") {
@@ -111,7 +112,26 @@ func cacheableMaxAge(method string, reqHeaders, respHeaders map[string]string, s
 	}
 
 	if maxAge <= 0 {
+		// Implicit cache for static assets without cache headers
+		if isStaticAssetURL(targetURL) {
+			return 5 * time.Minute
+		}
 		return 0
 	}
 	return time.Duration(maxAge) * time.Second
+}
+
+// isStaticAssetURL returns true for URLs that are likely static assets.
+func isStaticAssetURL(u string) bool {
+	for _, ext := range []string{".js", ".css", ".woff", ".woff2", ".ttf", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp"} {
+		// Check if the URL path (before query string) ends with the extension
+		path := u
+		if i := strings.IndexByte(path, '?'); i >= 0 {
+			path = path[:i]
+		}
+		if strings.HasSuffix(strings.ToLower(path), ext) {
+			return true
+		}
+	}
+	return false
 }

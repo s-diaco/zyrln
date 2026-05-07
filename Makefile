@@ -11,7 +11,7 @@ export ANDROID_HOME
 export GOTOOLCHAIN
 export GOFLAGS
 
-.PHONY: all desktop proxy test android android-debug keystore clean
+.PHONY: all desktop gui proxy test android android-debug keystore clean
 
 all: desktop
 
@@ -27,6 +27,10 @@ proxy:
 		exit 1; \
 	fi
 	GOCACHE=$(GOCACHE) go run ./platforms/desktop/ -serve-proxy
+
+## Start the browser-based GUI.
+gui: desktop
+	./zyrln -gui
 
 ## Smoke test the full relay chain.
 test:

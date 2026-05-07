@@ -110,9 +110,8 @@ Install `certs/zyrln-ca.pem` as a trusted CA in your browser:
 
 Start the proxy:
 
-```bash
-make proxy
-```
+- **Windows**: Double-click `run.bat`
+- **Linux/Mac**: Run `make gui`
 
 Set your browser's HTTP and HTTPS proxy to `127.0.0.1:8085`.
 
