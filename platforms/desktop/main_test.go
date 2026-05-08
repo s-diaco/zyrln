@@ -497,10 +497,13 @@ func TestGUIStartStopWithInjectedStarter(t *testing.T) {
 	writeConfigForTest(t, dir, "fronted-appscript-url = https://script.google.com/macros/s/ABC/exec\nauth-key = secret\nlisten = 127.0.0.1:9090\n")
 
 	var started atomic.Bool
-	starter := func(listen string, urls []string, key string, ca *core.CertAuthority) (*http.Server, net.Listener, error) {
+	starter := func(listen, socksListen string, urls []string, key string, ca *core.CertAuthority) (*http.Server, net.Listener, *core.SOCKSServer, net.Listener, error) {
 		started.Store(true)
 		if listen != "127.0.0.1:9090" {
 			t.Errorf("listen = %q", listen)
+		}
+		if socksListen != "127.0.0.1:1080" {
+			t.Errorf("socksListen = %q", socksListen)
 		}
 		if len(urls) != 1 || urls[0] != "https://script.google.com/macros/s/ABC/exec" {
 			t.Errorf("urls = %v", urls)
@@ -511,7 +514,7 @@ func TestGUIStartStopWithInjectedStarter(t *testing.T) {
 		if ca == nil {
 			t.Error("ca is nil")
 		}
-		return &http.Server{}, noopListener{}, nil
+		return &http.Server{}, noopListener{}, &core.SOCKSServer{}, noopListener{}, nil
 	}
 	handler := newTestGUIHandler(t, dir, starter)
 	resp := httptest.NewRecorder()
@@ -549,9 +552,9 @@ func TestGUIStartStopWithInjectedStarter(t *testing.T) {
 func newTestGUIHandler(t *testing.T, dir string, starter guiProxyStarter) http.Handler {
 	t.Helper()
 	if starter == nil {
-		starter = func(string, []string, string, *core.CertAuthority) (*http.Server, net.Listener, error) {
+		starter = func(string, string, []string, string, *core.CertAuthority) (*http.Server, net.Listener, *core.SOCKSServer, net.Listener, error) {
 			t.Fatal("unexpected proxy start")
-			return nil, nil, nil
+			return nil, nil, nil, nil, nil
 		}
 	}
 	configPath := filepath.Join(dir, "config.env")
@@ -566,11 +569,16 @@ func resetGUIStateForTest(t *testing.T) {
 	if guiProxyLn != nil {
 		_ = guiProxyLn.Close()
 	}
+	if guiSOCKSLn != nil {
+		_ = guiSOCKSLn.Close()
+	}
 	if guiProxyServer != nil {
 		_ = guiProxyServer.Close()
 	}
 	guiProxyServer = nil
 	guiProxyLn = nil
+	guiSOCKSServer = nil
+	guiSOCKSLn = nil
 	guiProxyStartTime = time.Time{}
 	guiMu.Unlock()
 	atomic.StoreInt64(&guiRequestCount, 0)

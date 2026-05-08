@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -182,6 +183,72 @@ func TestHandleHTTP_RelayError_Returns502(t *testing.T) {
 
 	if w.Code != http.StatusBadGateway {
 		t.Errorf("status = %d, want 502", w.Code)
+	}
+}
+
+func TestStartProxyWithSOCKS_RelaysHTTP(t *testing.T) {
+	srv := fakeAppScript(t, "proxied via socks", 200)
+	defer srv.Close()
+
+	httpSrv, httpLn, socksSrv, socksLn, err := StartProxyWithSOCKS("127.0.0.1:0", "127.0.0.1:0", []string{srv.URL}, srv.Listener.Addr().String(), "k", nil, srv.Client(), time.Second)
+	if err != nil {
+		t.Fatalf("StartProxyWithSOCKS: %v", err)
+	}
+	defer httpLn.Close()
+	defer httpSrv.Close()
+	defer socksLn.Close()
+	_ = socksSrv
+
+	conn, err := net.Dial("tcp", socksLn.Addr().String())
+	if err != nil {
+		t.Fatalf("dial socks: %v", err)
+	}
+	defer conn.Close()
+
+	if _, err := conn.Write([]byte{0x05, 0x01, 0x00}); err != nil {
+		t.Fatalf("write greeting: %v", err)
+	}
+	buf := make([]byte, 2)
+	if _, err := io.ReadFull(conn, buf); err != nil {
+		t.Fatalf("read greeting reply: %v", err)
+	}
+	if string(buf) != string([]byte{0x05, 0x00}) {
+		t.Fatalf("greeting reply = %v, want [5 0]", buf)
+	}
+
+	host := "example.com"
+	req := append([]byte{0x05, 0x01, 0x00, 0x03, byte(len(host))}, []byte(host)...)
+	req = append(req, 0x00, 0x50)
+	if _, err := conn.Write(req); err != nil {
+		t.Fatalf("write connect request: %v", err)
+	}
+	reply := make([]byte, 10)
+	if _, err := io.ReadFull(conn, reply); err != nil {
+		t.Fatalf("read connect reply: %v", err)
+	}
+	if reply[0] != 0x05 || reply[1] != 0x00 {
+		t.Fatalf("connect reply = %v, want success", reply)
+	}
+
+	if _, err := fmt.Fprintf(conn, "GET /test HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n", host); err != nil {
+		t.Fatalf("write http request: %v", err)
+	}
+
+	resp, err := http.ReadResponse(bufio.NewReader(conn), nil)
+	if err != nil {
+		t.Fatalf("ReadResponse: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if string(body) != "proxied via socks" {
+		t.Fatalf("body = %q, want proxied via socks", body)
 	}
 }
 

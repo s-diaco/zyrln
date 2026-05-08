@@ -16,6 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'help.authKey': 'Secret key used for authenticating with your Apps Script relay. Must match across all components.',
             'label.listen': 'Listen Address',
             'help.listen': 'The local IP and port where Zyrln will listen for connections (default 127.0.0.1:8085).',
+            'label.socksListen': 'SOCKS5 Listen Address',
+            'help.socksListen': 'The local IP and port where the SOCKS5 listener accepts connections (default 127.0.0.1:1080).',
             'button.save': 'Save Changes',
             'section.tools': 'Tools & Diagnostics',
             'tool.diagnostics': 'Diagnostics',
@@ -40,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'button.copyClose': 'Copy & Close',
             'progress.processing': 'Processing...',
             'progress.saving': 'Saving configuration...',
-            'progress.starting': 'Starting proxy...',
+            'progress.starting': 'Starting HTTP and SOCKS5 listeners...',
             'progress.stopping': 'Stopping proxy...',
             'progress.diagnostics': 'Running connection diagnostics...',
             'progress.export': 'Generating export data...',
@@ -57,8 +59,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'toast.copied': 'Copied to clipboard!',
             'log.configLoaded': 'Configuration loaded from config.env',
             'log.configUpdated': 'Configuration updated.',
-            'log.cannotStart': 'Cannot start proxy: saved relay endpoint, auth key, and listen address are required.',
-            'log.proxyStarted': 'Proxy started on {listen}',
+            'log.cannotStart': 'Cannot start proxy: saved relay endpoint, auth key, and listen addresses are required.',
+            'log.proxyStarted': 'Proxy started: HTTP on {listen}, SOCKS5 on {socksListen}',
             'log.proxyStopped': 'Proxy stopped.',
             'log.diagnosticsComplete': 'Diagnostics complete.',
             'log.diagnosticsFailed': 'Diagnostics failed: {error}',
@@ -85,6 +87,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'help.authKey': 'کلید محرمانه برای اتصال به رله Apps Script. باید در همه بخش‌ها یکسان باشد.',
             'label.listen': 'آدرس شنود',
             'help.listen': 'آی‌پی و پورت محلی که زیرلن روی آن اتصال‌ها را می‌پذیرد. پیش‌فرض 127.0.0.1:8085 است.',
+            'label.socksListen': 'آدرس شنود SOCKS5',
+            'help.socksListen': 'آی‌پی و پورت محلی که شنونده SOCKS5 روی آن اتصال‌ها را می‌پذیرد. پیش‌فرض 127.0.0.1:1080 است.',
             'button.save': 'ذخیره تغییرات',
             'section.tools': 'ابزارها و عیب‌یابی',
             'tool.diagnostics': 'عیب‌یابی',
@@ -108,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'button.copyClose': 'کپی و بستن',
             'progress.processing': 'در حال پردازش...',
             'progress.saving': 'در حال ذخیره پیکربندی...',
-            'progress.starting': 'در حال شروع پروکسی...',
+            'progress.starting': 'در حال شروع شنونده‌های HTTP و SOCKS5...',
             'progress.stopping': 'در حال توقف پروکسی...',
             'progress.diagnostics': 'در حال اجرای عیب‌یابی اتصال...',
             'progress.export': 'در حال ساخت خروجی...',
@@ -144,6 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ['پیکربندی به‌روزرسانی شد.', translations.en['log.configUpdated']],
         ['در حال توقف پروکسی...', translations.en['progress.stopping']],
         ['در حال شروع پروکسی...', translations.en['progress.starting']],
+        ['در حال شروع شنونده‌های HTTP و SOCKS5...', translations.en['progress.starting']],
         ['در حال اجرای عیب‌یابی اتصال...', translations.en['progress.diagnostics']],
         ['عیب‌یابی کامل شد.', translations.en['log.diagnosticsComplete']],
         ['پیکربندی موبایل در پنجره خروجی نمایش داده شد.', translations.en['log.exported']],
@@ -254,7 +259,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(endpoint, { method: 'POST' });
             if (response.ok) {
-                showLog(isRunning ? `✅ ${tLog('log.proxyStopped')}` : `✅ ${tLog('log.proxyStarted', { listen: document.getElementById('listen').value || '127.0.0.1:8085' })}`);
+                showLog(isRunning ? `✅ ${tLog('log.proxyStopped')}` : `✅ ${tLog('log.proxyStarted', {
+                    listen: document.getElementById('listen').value || '127.0.0.1:8085',
+                    socksListen: document.getElementById('socks-listen').value || '127.0.0.1:1080'
+                })}`);
                 showToast(isRunning ? t('toast.proxyStopped') : t('toast.proxyStarted'));
                 updateStatus();
                 validateInputs();
@@ -606,7 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Listen for input changes
-    ['fronted-appscript-url', 'auth-key', 'listen'].forEach(id => {
+    ['fronted-appscript-url', 'auth-key', 'listen', 'socks-listen'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('input', validateInputs);
     });

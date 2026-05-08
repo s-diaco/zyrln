@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/tls"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -26,6 +27,25 @@ func ServeProxy(listenAddr string, appScriptURLs []string, frontDomain, authKey 
 	return srv.ListenAndServe()
 }
 
+// ServeProxyWithSOCKS starts the relay HTTP+HTTPS MITM proxy and a SOCKS5 listener.
+// SOCKS5 support is limited to HTTP and HTTPS traffic so it can reuse the relay pipeline.
+func ServeProxyWithSOCKS(httpListenAddr, socksListenAddr string, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) error {
+	httpSrv, socksSrv, err := buildProxyServers(httpListenAddr, socksListenAddr, appScriptURLs, frontDomain, authKey, ca, client, timeout)
+	if err != nil {
+		return err
+	}
+
+	errCh := make(chan error, 2)
+	go func() {
+		errCh <- httpSrv.ListenAndServe()
+	}()
+	go func() {
+		errCh <- socksSrv.ListenAndServe()
+	}()
+
+	return <-errCh
+}
+
 // StartProxy starts the relay proxy in the background and returns the server and listener for shutdown.
 // appScriptURLs is tried in order; the first that succeeds is used for each request.
 // Close the returned listener (or call server.Close) to stop the proxy.
@@ -43,12 +63,56 @@ func StartProxy(listenAddr string, appScriptURLs []string, frontDomain, authKey 
 	return srv, ln, nil
 }
 
+// StartProxyWithSOCKS starts the relay HTTP proxy and a SOCKS5 listener in the background.
+// Close the returned listeners and servers to stop both endpoints.
+func StartProxyWithSOCKS(httpListenAddr, socksListenAddr string, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) (*http.Server, net.Listener, *SOCKSServer, net.Listener, error) {
+	httpSrv, socksSrv, err := buildProxyServers(httpListenAddr, socksListenAddr, appScriptURLs, frontDomain, authKey, ca, client, timeout)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	httpLn, err := net.Listen("tcp", httpListenAddr)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	socksLn, err := net.Listen("tcp", socksListenAddr)
+	if err != nil {
+		_ = httpLn.Close()
+		return nil, nil, nil, nil, err
+	}
+
+	go func() { _ = httpSrv.Serve(httpLn) }()
+	go func() { _ = socksSrv.Serve(socksLn) }()
+	return httpSrv, httpLn, socksSrv, socksLn, nil
+}
+
+func buildProxyServers(httpListenAddr, socksListenAddr string, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) (*http.Server, *SOCKSServer, error) {
+	coal, err := newProxyCoalescer(appScriptURLs, frontDomain, authKey, client, timeout)
+	if err != nil {
+		return nil, nil, err
+	}
+	return buildHTTPProxyServer(httpListenAddr, coal, ca), NewSOCKSServer(socksListenAddr, coal, ca), nil
+}
+
 func listenAndServeProxy(listenAddr string, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) (*http.Server, error) {
+	coal, err := newProxyCoalescer(appScriptURLs, frontDomain, authKey, client, timeout)
+	if err != nil {
+		return nil, err
+	}
+	return buildHTTPProxyServer(listenAddr, coal, ca), nil
+}
+
+func newProxyCoalescer(appScriptURLs []string, frontDomain, authKey string, client *http.Client, timeout time.Duration) (*Coalescer, error) {
 	if len(appScriptURLs) == 0 {
 		return nil, fmt.Errorf("no Apps Script URLs configured")
 	}
 	coal := NewCoalescer(client, appScriptURLs, frontDomain, authKey, timeout)
 	coal.Warmup()
+	return coal, nil
+}
+
+func buildHTTPProxyServer(listenAddr string, coal *Coalescer, ca *CertAuthority) *http.Server {
 	return &http.Server{
 		Addr: listenAddr,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +123,7 @@ func listenAndServeProxy(listenAddr string, appScriptURLs []string, frontDomain,
 			}
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
-	}, nil
+	}
 }
 
 func handleHTTP(w http.ResponseWriter, r *http.Request, coal *Coalescer) {
@@ -111,21 +175,21 @@ func handleConnect(w http.ResponseWriter, r *http.Request, coal *Coalescer, ca *
 	}
 	defer rawConn.Close()
 
-	host, _, err := net.SplitHostPort(r.Host)
+	certHost, _, err := net.SplitHostPort(r.Host)
 	if err != nil {
-		host = r.Host
+		certHost = r.Host
 	}
-	host = strings.TrimSpace(host)
-	if host == "" {
+	certHost = strings.TrimSpace(certHost)
+	if certHost == "" {
 		_, _ = rawConn.Write([]byte("HTTP/1.1 400 Bad Request\r\n\r\n"))
 		return
 	}
 
 	_, _ = rawConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
 
-	cert, err := ca.CertForHost(host)
+	cert, err := ca.CertForHost(certHost)
 	if err != nil {
-		fmt.Printf("mitm cert %s: %v\n", host, err)
+		fmt.Printf("mitm cert %s: %v\n", certHost, err)
 		return
 	}
 
@@ -137,13 +201,17 @@ func handleConnect(w http.ResponseWriter, r *http.Request, coal *Coalescer, ca *
 		return
 	}
 	defer tlsConn.Close()
+	handleMITMTLS(tlsConn, certHost, r.Host, coal)
+}
+
+func handleMITMTLS(tlsConn net.Conn, certHost, targetHost string, coal *Coalescer) {
 
 	reader := bufio.NewReader(tlsConn)
 	for {
 		req, err := http.ReadRequest(reader)
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
-				fmt.Printf("mitm read %s: %v\n", host, err)
+				fmt.Printf("mitm read %s: %v\n", certHost, err)
 			}
 			return
 		}
@@ -163,7 +231,7 @@ func handleConnect(w http.ResponseWriter, r *http.Request, coal *Coalescer, ca *
 			return
 		}
 
-		targetURL := "https://" + host + req.URL.RequestURI()
+		targetURL := "https://" + targetHost + req.URL.RequestURI()
 		relayResp, err := coal.Submit(req.Method, targetURL, forwardHeaders(req.Header), body)
 		if err != nil {
 			writeHTTPError(tlsConn, http.StatusBadGateway, "relay failed: "+err.Error())
@@ -200,6 +268,269 @@ func handleConnect(w http.ResponseWriter, r *http.Request, coal *Coalescer, ca *
 			return
 		}
 	}
+}
+
+// SOCKSServer exposes the HTTP relay pipeline behind a SOCKS5 handshake.
+// It supports CONNECT for HTTP and HTTPS traffic and rejects UDP and BIND.
+type SOCKSServer struct {
+	Addr string
+	coal *Coalescer
+	ca   *CertAuthority
+}
+
+// NewSOCKSServer creates a SOCKS5 server that forwards HTTP and HTTPS through the relay.
+func NewSOCKSServer(addr string, coal *Coalescer, ca *CertAuthority) *SOCKSServer {
+	return &SOCKSServer{Addr: addr, coal: coal, ca: ca}
+}
+
+// ListenAndServe starts the SOCKS5 server on its configured address.
+func (s *SOCKSServer) ListenAndServe() error {
+	ln, err := net.Listen("tcp", s.Addr)
+	if err != nil {
+		return err
+	}
+	return s.Serve(ln)
+}
+
+// Serve accepts SOCKS5 client connections on ln.
+func (s *SOCKSServer) Serve(ln net.Listener) error {
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			return err
+		}
+		go s.handleConn(conn)
+	}
+}
+
+func (s *SOCKSServer) handleConn(conn net.Conn) {
+	defer conn.Close()
+
+	reader := bufio.NewReader(conn)
+	targetHost, err := s.handshake(reader, conn)
+	if err != nil {
+		return
+	}
+
+	if isLikelyTLS(reader) {
+		certHost, _, err := net.SplitHostPort(targetHost)
+		if err != nil {
+			certHost = targetHost
+		}
+		certHost = strings.TrimSpace(certHost)
+		if certHost == "" {
+			return
+		}
+
+		cert, err := s.ca.CertForHost(certHost)
+		if err != nil {
+			fmt.Printf("socks mitm cert %s: %v\n", certHost, err)
+			return
+		}
+
+		tlsConn := tls.Server(&bufferedConn{Conn: conn, reader: reader}, &tls.Config{
+			Certificates: []tls.Certificate{*cert},
+			MinVersion:   tls.VersionTLS12,
+		})
+		defer tlsConn.Close()
+		if err := tlsConn.Handshake(); err != nil {
+			return
+		}
+		handleMITMTLS(tlsConn, certHost, targetHost, s.coal)
+		return
+	}
+
+	handleSOCKSHTTP(&bufferedConn{Conn: conn, reader: reader}, targetHost, s.coal)
+}
+
+func (s *SOCKSServer) handshake(reader *bufio.Reader, conn net.Conn) (string, error) {
+	version, err := reader.ReadByte()
+	if err != nil {
+		return "", err
+	}
+	if version != 0x05 {
+		return "", fmt.Errorf("unsupported socks version %d", version)
+	}
+
+	methodCount, err := reader.ReadByte()
+	if err != nil {
+		return "", err
+	}
+	methods := make([]byte, int(methodCount))
+	if _, err := io.ReadFull(reader, methods); err != nil {
+		return "", err
+	}
+
+	selected := byte(0xFF)
+	for _, method := range methods {
+		if method == 0x00 {
+			selected = 0x00
+			break
+		}
+	}
+	if _, err := conn.Write([]byte{0x05, selected}); err != nil {
+		return "", err
+	}
+	if selected == 0xFF {
+		return "", fmt.Errorf("no acceptable socks auth method")
+	}
+
+	header := make([]byte, 4)
+	if _, err := io.ReadFull(reader, header); err != nil {
+		return "", err
+	}
+	if header[0] != 0x05 {
+		return "", fmt.Errorf("unsupported socks request version %d", header[0])
+	}
+	if header[1] != 0x01 {
+		s.writeReply(conn, 0x07, nil)
+		return "", fmt.Errorf("unsupported socks command %d", header[1])
+	}
+
+	host, err := readSOCKSAddress(reader, header[3])
+	if err != nil {
+		s.writeReply(conn, 0x08, nil)
+		return "", err
+	}
+	portBytes := make([]byte, 2)
+	if _, err := io.ReadFull(reader, portBytes); err != nil {
+		return "", err
+	}
+	targetHost := net.JoinHostPort(host, fmt.Sprintf("%d", binary.BigEndian.Uint16(portBytes)))
+	if err := s.writeReply(conn, 0x00, conn.LocalAddr()); err != nil {
+		return "", err
+	}
+	return targetHost, nil
+}
+
+func (s *SOCKSServer) writeReply(conn net.Conn, status byte, addr net.Addr) error {
+	ip := net.IPv4zero
+	port := uint16(0)
+	if tcpAddr, ok := addr.(*net.TCPAddr); ok {
+		if v4 := tcpAddr.IP.To4(); v4 != nil {
+			ip = v4
+		}
+		port = uint16(tcpAddr.Port)
+	}
+	reply := []byte{0x05, status, 0x00, 0x01, ip[0], ip[1], ip[2], ip[3], 0x00, 0x00}
+	binary.BigEndian.PutUint16(reply[len(reply)-2:], port)
+	_, err := conn.Write(reply)
+	return err
+}
+
+func readSOCKSAddress(reader io.Reader, atyp byte) (string, error) {
+	switch atyp {
+	case 0x01:
+		addr := make([]byte, net.IPv4len)
+		if _, err := io.ReadFull(reader, addr); err != nil {
+			return "", err
+		}
+		return net.IP(addr).String(), nil
+	case 0x03:
+		var size [1]byte
+		if _, err := io.ReadFull(reader, size[:]); err != nil {
+			return "", err
+		}
+		addr := make([]byte, int(size[0]))
+		if _, err := io.ReadFull(reader, addr); err != nil {
+			return "", err
+		}
+		return string(addr), nil
+	case 0x04:
+		addr := make([]byte, net.IPv6len)
+		if _, err := io.ReadFull(reader, addr); err != nil {
+			return "", err
+		}
+		return net.IP(addr).String(), nil
+	default:
+		return "", fmt.Errorf("unsupported socks address type %d", atyp)
+	}
+}
+
+func isLikelyTLS(reader *bufio.Reader) bool {
+	peek, err := reader.Peek(1)
+	if err != nil {
+		return false
+	}
+	return peek[0] == 0x16
+}
+
+func handleSOCKSHTTP(conn net.Conn, targetHost string, coal *Coalescer) {
+	defer conn.Close()
+	reader := bufio.NewReader(conn)
+	for {
+		req, err := http.ReadRequest(reader)
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				fmt.Printf("socks http read %s: %v\n", targetHost, err)
+			}
+			return
+		}
+
+		body, err := io.ReadAll(io.LimitReader(req.Body, 8*1024*1024))
+		_ = req.Body.Close()
+		if err != nil {
+			writeHTTPError(conn, http.StatusBadRequest, "read body failed")
+			return
+		}
+
+		host := targetHost
+		if req.Host != "" {
+			host = req.Host
+			if !strings.Contains(host, ":") && strings.Contains(targetHost, ":") {
+				_, port, err := net.SplitHostPort(targetHost)
+				if err == nil && port != "80" {
+					host = net.JoinHostPort(host, port)
+				}
+			}
+		}
+
+		targetURL := "http://" + host + req.URL.RequestURI()
+		relayResp, err := coal.Submit(req.Method, targetURL, forwardHeaders(req.Header), body)
+		if err != nil {
+			writeHTTPError(conn, http.StatusBadGateway, "relay failed: "+err.Error())
+			fmt.Printf("%s %s -> error: %s\n", req.Method, targetURL, err)
+			return
+		}
+
+		resp := &http.Response{
+			StatusCode:    relayResp.Status,
+			Status:        fmt.Sprintf("%d %s", relayResp.Status, http.StatusText(relayResp.Status)),
+			Proto:         "HTTP/1.1",
+			ProtoMajor:    1,
+			ProtoMinor:    1,
+			Header:        make(http.Header),
+			Body:          io.NopCloser(bytes.NewReader(relayResp.Body)),
+			ContentLength: int64(len(relayResp.Body)),
+		}
+		for k, vs := range relayResp.Headers {
+			if !skipResponseHeader(k) {
+				for _, v := range vs {
+					resp.Header.Add(k, v)
+				}
+			}
+		}
+		if strings.EqualFold(req.Header.Get("Connection"), "close") {
+			resp.Header.Set("Connection", "close")
+		}
+		if err := resp.Write(conn); err != nil {
+			return
+		}
+		fmt.Printf("%s %s -> %d %dB\n", req.Method, targetURL, relayResp.Status, len(relayResp.Body))
+
+		if strings.EqualFold(req.Header.Get("Connection"), "close") {
+			return
+		}
+	}
+}
+
+type bufferedConn struct {
+	net.Conn
+	reader *bufio.Reader
+}
+
+func (c *bufferedConn) Read(p []byte) (int, error) {
+	return c.reader.Read(p)
 }
 
 func writeHTTPError(conn net.Conn, status int, msg string) {

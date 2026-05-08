@@ -132,7 +132,7 @@ func main() {
 Modes:
   (default)          run reachability probes and print a table
   -init-ca           generate a local CA cert for HTTPS proxy interception
-  -serve-proxy       start a local HTTP+HTTPS proxy backed by the relay
+	-serve-proxy       start local HTTP+HTTPS and SOCKS5 proxies backed by the relay
   -relay-fetch-url   fetch one URL through the full relay chain
   -export-config     print config as JSON for importing into the Android app
 
@@ -157,8 +157,9 @@ Flags:
 	targetURLFlag := flag.String("target-url", "https://www.gstatic.com/generate_204", "target URL for relay probe and relay-fetch")
 	relayFetchURLFlag := flag.String("relay-fetch-url", "", "fetch this target URL through the full relay chain and print the decoded response")
 	bodyOutFlag := flag.String("body-out", "", "optional path to write the decoded relay response body")
-	serveProxyFlag := flag.Bool("serve-proxy", false, "start a local HTTP proxy backed by the relay")
+	serveProxyFlag := flag.Bool("serve-proxy", false, "start local HTTP and SOCKS5 proxies backed by the relay")
 	listenFlag := flag.String("listen", "127.0.0.1:8085", "listen address for -serve-proxy")
+	socksListenFlag := flag.String("socks-listen", "127.0.0.1:1080", "SOCKS5 listen address for -serve-proxy")
 	exportConfigFlag := flag.Bool("export-config", false, "print config as JSON for importing into the Android app")
 	initCAFlag := flag.Bool("init-ca", false, "generate a local CA certificate for HTTPS proxy interception")
 	frontRedirectsFlag := flag.Bool("front-redirects", false, "when a fronted probe gets a redirect, retry the Location using the front domain and encrypted Host override")
@@ -266,11 +267,12 @@ Flags:
 			os.Exit(1)
 		}
 		fmt.Printf("relay HTTP proxy listening on http://%s\n", *listenFlag)
+		fmt.Printf("relay SOCKS5 proxy listening on socks5://%s\n", *socksListenFlag)
 		fmt.Printf("mode: HTTP and HTTPS via local CA MITM; install %s as trusted CA for browsers\n", *caCertFlag)
 		if len(appScriptURLs) > 1 {
 			fmt.Printf("fallback: %d Apps Script URLs configured\n", len(appScriptURLs))
 		}
-		if err := core.ServeProxy(*listenFlag, appScriptURLs, *frontDomainFlag, *authKeyFlag, ca, client, *timeoutFlag); err != nil {
+		if err := core.ServeProxyWithSOCKS(*listenFlag, *socksListenFlag, appScriptURLs, *frontDomainFlag, *authKeyFlag, ca, client, *timeoutFlag); err != nil {
 			fmt.Fprintf(os.Stderr, "proxy failed: %v\n", err)
 			os.Exit(1)
 		}
@@ -717,16 +719,18 @@ func shouldStartGUIByDefault(goos string, args []string) bool {
 var (
 	guiProxyServer    *http.Server
 	guiProxyLn        net.Listener
+	guiSOCKSServer    *core.SOCKSServer
+	guiSOCKSLn        net.Listener
 	guiRequestCount   int64
 	guiProxyStartTime time.Time
 	guiMu             sync.Mutex
 )
 
-type guiProxyStarter func(listen string, urls []string, key string, ca *core.CertAuthority) (*http.Server, net.Listener, error)
+type guiProxyStarter func(listen, socksListen string, urls []string, key string, ca *core.CertAuthority) (*http.Server, net.Listener, *core.SOCKSServer, net.Listener, error)
 
-func defaultGUIProxyStarter(listen string, urls []string, key string, ca *core.CertAuthority) (*http.Server, net.Listener, error) {
+func defaultGUIProxyStarter(listen, socksListen string, urls []string, key string, ca *core.CertAuthority) (*http.Server, net.Listener, *core.SOCKSServer, net.Listener, error) {
 	client := &http.Client{Timeout: 12 * time.Second}
-	return core.StartProxy(listen, urls, "www.google.com", key, ca, client, 12*time.Second)
+	return core.StartProxyWithSOCKS(listen, socksListen, urls, "www.google.com", key, ca, client, 12*time.Second)
 }
 
 func startGUIServer(listenAddr, configPath, caCertPath, caKeyPath string) {
@@ -804,8 +808,13 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 		if guiProxyServer != nil {
 			_ = guiProxyLn.Close()
 			_ = guiProxyServer.Close()
+			if guiSOCKSLn != nil {
+				_ = guiSOCKSLn.Close()
+			}
 			guiProxyServer = nil
 			guiProxyLn = nil
+			guiSOCKSServer = nil
+			guiSOCKSLn = nil
 			guiProxyStartTime = time.Time{}
 		}
 		guiMu.Unlock()
@@ -844,6 +853,10 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 		if listen == "" {
 			listen = "127.0.0.1:8085"
 		}
+		socksListen := cfg["socks-listen"]
+		if socksListen == "" {
+			socksListen = "127.0.0.1:1080"
+		}
 		if len(urls) == 0 {
 			http.Error(w, "fronted-appscript-url is required", http.StatusBadRequest)
 			return
@@ -859,7 +872,7 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 			return
 		}
 
-		srv, ln, err := startProxy(listen, urls, key, ca)
+		srv, ln, socksSrv, socksLn, err := startProxy(listen, socksListen, urls, key, ca)
 		if err != nil {
 			http.Error(w, "start failed: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -867,6 +880,8 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 
 		guiProxyServer = srv
 		guiProxyLn = ln
+		guiSOCKSServer = socksSrv
+		guiSOCKSLn = socksLn
 		guiProxyStartTime = time.Now()
 		w.WriteHeader(http.StatusOK)
 	})
@@ -880,8 +895,13 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 		}
 		_ = guiProxyLn.Close()
 		_ = guiProxyServer.Close()
+		if guiSOCKSLn != nil {
+			_ = guiSOCKSLn.Close()
+		}
 		guiProxyServer = nil
 		guiProxyLn = nil
+		guiSOCKSServer = nil
+		guiSOCKSLn = nil
 		guiProxyStartTime = time.Time{}
 		guiMu.Unlock()
 		w.WriteHeader(http.StatusOK)
