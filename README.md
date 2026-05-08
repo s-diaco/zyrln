@@ -92,7 +92,12 @@ Create `config.env` (gitignored):
 fronted-appscript-url = https://script.google.com/macros/s/YOUR_ID/exec
 auth-key              = YOUR_KEY
 listen                = 127.0.0.1:8085
+socks-listen          = 127.0.0.1:1080
 ```
+
+`listen` is the local HTTP/HTTPS proxy address.
+`socks-listen` is the local SOCKS5 proxy address.
+If `socks-listen` is omitted in the GUI flow, Zyrln uses `127.0.0.1:1080` by default.
 
 Multiple Apps Script URLs (comma-separated, no spaces):
 
@@ -115,7 +120,10 @@ Start the proxy:
 - **Windows**: Put `run.bat` next to `zyrln-windows-amd64.exe`, then double-click `run.bat`
 - **Linux/Mac**: Run `make gui`
 
-Set your browser's HTTP and HTTPS proxy to `127.0.0.1:8085`.
+Then configure your client with one of these options:
+
+- HTTP proxy: set browser HTTP and HTTPS proxy to `127.0.0.1:8085`
+- SOCKS5 proxy: set the SOCKS host to `127.0.0.1` and port to `1080`, or whatever you placed in `socks-listen`
 
 ### 4. Verify the full chain
 
