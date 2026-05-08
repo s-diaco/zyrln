@@ -647,7 +647,6 @@ body.rtl .stats-mini {
     direction: rtl;
 }
 
-body.rtl .logo-text,
 body.rtl .v-tag,
 body.rtl .mini-stat .value {
     direction: ltr;
@@ -663,8 +662,13 @@ body.rtl .input-log::placeholder {
     text-align: right;
 }
 
+body.rtl .logo-text {
+    direction: rtl;
+}
+
 body.rtl .action-btn,
 body.rtl .save-btn,
+body.rtl .connect-btn,
 body.rtl .text-btn {
     font-family: 'Vazirmatn', var(--font-sans);
 }
