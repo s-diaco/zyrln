@@ -94,6 +94,12 @@ func TestShouldStartGUIByDefault_NonWindows(t *testing.T) {
 	}
 }
 
+func TestShouldStartGUIByDefault_EmptyArgsEdgeCase(t *testing.T) {
+	if !shouldStartGUIByDefault("windows", []string{}) {
+		t.Error("expected Windows with empty args to also trigger GUI")
+	}
+}
+
 // --- filterProbes ---
 
 func TestFilterProbes_EmptyCategory(t *testing.T) {

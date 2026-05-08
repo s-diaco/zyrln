@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -508,5 +509,25 @@ func TestRelayRequestMulti_SplitsTimeout(t *testing.T) {
 	got = perURLTimeout(4*time.Second, 2)
 	if got != 8*time.Second {
 		t.Errorf("got %v, want 8s (minimum)", got)
+	}
+}
+
+func TestWriteHTTPError(t *testing.T) {
+	client, server := net.Pipe()
+	go func() {
+		writeHTTPError(server, http.StatusBadGateway, "some error")
+		server.Close()
+	}()
+
+	raw, err := io.ReadAll(client)
+	if err != nil {
+		t.Fatalf("read failed: %v", err)
+	}
+	out := string(raw)
+	if !strings.Contains(out, "502 Bad Gateway") {
+		t.Errorf("expected 502 status, got: %s", out)
+	}
+	if !strings.Contains(out, "some error") {
+		t.Errorf("expected body 'some error', got: %s", out)
 	}
 }

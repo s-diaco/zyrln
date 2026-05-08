@@ -87,3 +87,24 @@ func TestStart_LoadsExistingCA(t *testing.T) {
 		t.Fatal("Start should not leave proxy running when config is incomplete")
 	}
 }
+
+func TestLastError(t *testing.T) {
+	Stop()
+	t.Cleanup(Stop)
+
+	errStr := Start("", "secret", "127.0.0.1:0", "/nonexistent/ca.pem", "/nonexistent/ca.key")
+	if errStr == "" {
+		t.Fatalf("expected error from Start")
+	}
+	if got := LastError(); got != errStr {
+		t.Fatalf("LastError = %q, want %q", got, errStr)
+	}
+}
+
+func TestStop_WhenNotRunning(t *testing.T) {
+	Stop()
+	Stop() // Should not panic
+	if IsRunning() {
+		t.Errorf("expected IsRunning() to be false")
+	}
+}

@@ -146,6 +146,27 @@ func TestRequestPriority_PageAssetsBeforeTelemetry(t *testing.T) {
 	}
 }
 
+func TestIsTelemetryURL(t *testing.T) {
+	cases := []struct {
+		url  string
+		want bool
+	}{
+		{"https://google-analytics.com/collect", true},
+		{"https://www.doubleclick.net/ad", true},
+		{"https://googletagmanager.com/gtm.js", true},
+		{"https://www.google.com/gen_204", true},
+		{"https://www.google.com/generate_204", true},
+		{"https://clients4.google.com/domainreliability/upload", true},
+		{"https://example.com/api/v1/data", false},
+		{"://bad-url", false}, // Edge case for unparseable URL
+	}
+	for _, c := range cases {
+		if got := isTelemetryURL(c.url); got != c.want {
+			t.Errorf("isTelemetryURL(%q) = %v, want %v", c.url, got, c.want)
+		}
+	}
+}
+
 func TestPrioritizeBatch_ReordersWithoutDroppingAndKeepsStableOrder(t *testing.T) {
 	telemetry := &coalescerItem{method: "POST", targetURL: "https://www.google.com/gen_204", headers: map[string]string{}}
 	image := &coalescerItem{method: "GET", targetURL: "https://example.com/photo.webp", headers: map[string]string{}}

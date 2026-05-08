@@ -222,3 +222,16 @@ func TestCertForHost_SignedByCA(t *testing.T) {
 		t.Errorf("leaf cert not trusted by CA: %v", err)
 	}
 }
+
+func TestGetCertificate(t *testing.T) {
+	certPath, keyPath := generateTestCA(t)
+	ca, _ := LoadCA(certPath, keyPath)
+
+	cert := ca.GetCertificate()
+	if cert == nil {
+		t.Fatal("GetCertificate returned nil")
+	}
+	if cert.SerialNumber == nil {
+		t.Error("GetCertificate returned certificate with no serial number")
+	}
+}
