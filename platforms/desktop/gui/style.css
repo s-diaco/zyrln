@@ -307,11 +307,22 @@ body {
     gap: 16px;
 }
 
+.form-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 10px;
+}
+
 .form-group {
     display: flex;
     flex-direction: column;
     gap: 3px;
     margin-bottom: 10px;
+}
+
+.form-row .form-group {
+    flex: 1;
+    margin-bottom: 0;
 }
 
 label {

@@ -53,19 +53,21 @@
                             <button type="button" id="toggleAuthVisible" class="icon-btn" data-testid="btn-toggle-key-visibility">👁️</button>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label for="listen">
-                            <span data-i18n="label.listen">Listen Address</span>
-                            <span class="help-icon" data-i18n-title="help.listen" title="The local IP and port where Zyrln will listen for connections (default 127.0.0.1:8085).">?</span>
-                        </label>
-                        <input type="text" id="listen" name="listen" data-testid="input-listen" placeholder="127.0.0.1:8085">
-                    </div>
-                    <div class="form-group">
-                        <label for="socks-listen">
-                            <span data-i18n="label.socksListen">SOCKS5 Listen Address</span>
-                            <span class="help-icon" data-i18n-title="help.socksListen" title="The local IP and port where the SOCKS5 listener accepts connections (default 127.0.0.1:1080).">?</span>
-                        </label>
-                        <input type="text" id="socks-listen" name="socks-listen" data-testid="input-socks-listen" placeholder="127.0.0.1:1080">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="listen">
+                                <span data-i18n="label.listen">HTTP/HTTPS Listen Address</span>
+                                <span class="help-icon" data-i18n-title="help.listen" title="The local IP and port where Zyrln will listen for connections (default 127.0.0.1:8085).">?</span>
+                            </label>
+                            <input type="text" id="listen" name="listen" data-testid="input-listen" placeholder="127.0.0.1:8085">
+                        </div>
+                        <div class="form-group">
+                            <label for="socks-listen">
+                                <span data-i18n="label.socksListen">SOCKS5 Address</span>
+                                <span class="help-icon" data-i18n-title="help.socksListen" title="The local IP and port where the SOCKS5 listener accepts connections (default 127.0.0.1:1080).">?</span>
+                            </label>
+                            <input type="text" id="socks-listen" name="socks-listen" data-testid="input-socks-listen" placeholder="127.0.0.1:1080">
+                        </div>
                     </div>
                     <button type="submit" class="save-btn" data-testid="save-config-btn" data-i18n="button.save">Save Changes</button>
                 </form>
