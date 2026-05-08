@@ -310,7 +310,8 @@ body {
 .form-group {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 3px;
+    margin-bottom: 10px;
 }
 
 label {
@@ -656,4 +657,14 @@ body.rtl .mini-stat .value {
 body.rtl .help-icon {
     margin-left: 0;
     margin-right: 6px;
+}
+
+body.rtl .input-log::placeholder {
+    text-align: right;
+}
+
+body.rtl .action-btn,
+body.rtl .save-btn,
+body.rtl .text-btn {
+    font-family: 'Vazirmatn', var(--font-sans);
 }

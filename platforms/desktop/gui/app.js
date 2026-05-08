@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'stat.uptime': 'زمان اجرا',
             'stat.requests': 'درخواست‌ها',
             'section.monitor': 'مانیتور زنده',
-            'placeholder.filter': 'فیلتر لاگ‌ها...',
+            'placeholder.filter': '...فیلتر لاگ‌ها',
             'button.clearLogs': 'پاک کردن لاگ‌ها',
             'modal.exportTitle': 'خروجی پیکربندی',
             'modal.exportDesc': 'این JSON را در اپ اندروید وارد کنید:',
