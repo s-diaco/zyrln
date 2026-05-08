@@ -76,6 +76,24 @@ func TestLoadConfig_MissingFile(t *testing.T) {
 	}
 }
 
+func TestShouldStartGUIByDefault_WindowsNoArgs(t *testing.T) {
+	if !shouldStartGUIByDefault("windows", []string{"zyrln-windows-amd64.exe"}) {
+		t.Error("expected Windows no-arg launch to start GUI")
+	}
+}
+
+func TestShouldStartGUIByDefault_PreservesExplicitCLIArgs(t *testing.T) {
+	if shouldStartGUIByDefault("windows", []string{"zyrln-windows-amd64.exe", "-init-ca"}) {
+		t.Error("expected explicit Windows CLI args to preserve CLI mode")
+	}
+}
+
+func TestShouldStartGUIByDefault_NonWindows(t *testing.T) {
+	if shouldStartGUIByDefault("linux", []string{"zyrln-linux-amd64"}) {
+		t.Error("expected non-Windows no-arg launch to preserve existing default mode")
+	}
+}
+
 // --- filterProbes ---
 
 func TestFilterProbes_EmptyCategory(t *testing.T) {

@@ -26,6 +26,7 @@ import (
 )
 
 const defaultProxyAddress = "direct"
+const appVersion = "1.5.1-pre3"
 
 //go:embed gui/*
 var embeddedGUI embed.FS
@@ -165,6 +166,10 @@ Flags:
 	guiFlag := flag.Bool("gui", false, "start the browser-based GUI")
 	guiListenFlag := flag.String("gui-listen", "127.0.0.1:8086", "listen address for the GUI")
 	flag.Parse()
+
+	if shouldStartGUIByDefault(runtime.GOOS, os.Args) {
+		*guiFlag = true
+	}
 
 	// Apply config file values for flags not set on the CLI.
 	setCLI := map[string]bool{}
@@ -705,6 +710,10 @@ func loadConfig(path string) map[string]string {
 	return values
 }
 
+func shouldStartGUIByDefault(goos string, args []string) bool {
+	return goos == "windows" && len(args) <= 1
+}
+
 var (
 	guiProxyServer    *http.Server
 	guiProxyLn        net.Listener
@@ -763,7 +772,7 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 			"running":  running,
 			"uptime":   uptime,
 			"requests": atomic.LoadInt64(&guiRequestCount),
-			"version":  "1.5.1-pre2",
+			"version":  appVersion,
 		})
 	})
 
