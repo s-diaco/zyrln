@@ -145,7 +145,7 @@ Flags:
 
 	configFlag := flag.String("config", "config.env", "path to config file (key=value, flag names as keys)")
 	proxyFlag := flag.String("proxy", defaultProxyAddress, "HTTP proxy URL for lab testing, or 'direct'/'none' for real in-country use")
-	timeoutFlag := flag.Duration("timeout", 12*time.Second, "per-probe timeout")
+	timeoutFlag := flag.Duration("timeout", 30*time.Second, "per-probe timeout")
 	repeatFlag := flag.Int("repeat", 1, "number of times to run each probe")
 	formatFlag := flag.String("format", "table", "output format: table or json")
 	outFlag := flag.String("out", "", "optional path to write the full JSON report")
@@ -729,8 +729,8 @@ var (
 type guiProxyStarter func(listen, socksListen string, urls []string, key string, ca *core.CertAuthority) (*http.Server, net.Listener, *core.SOCKSServer, net.Listener, error)
 
 func defaultGUIProxyStarter(listen, socksListen string, urls []string, key string, ca *core.CertAuthority) (*http.Server, net.Listener, *core.SOCKSServer, net.Listener, error) {
-	client := &http.Client{Timeout: 12 * time.Second}
-	return core.StartProxyWithSOCKS(listen, socksListen, urls, "www.google.com", key, ca, client, 12*time.Second)
+	client := &http.Client{Timeout: 30 * time.Second}
+	return core.StartProxyWithSOCKS(listen, socksListen, urls, "www.google.com", key, ca, client, 30*time.Second)
 }
 
 func startGUIServer(listenAddr, configPath, caCertPath, caKeyPath string) {
@@ -916,7 +916,7 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 			target = "https://www.gstatic.com/generate_204"
 		}
 
-		client := &http.Client{Timeout: 12 * time.Second}
+		client := &http.Client{Timeout: 30 * time.Second}
 		probes := filterProbes(defaultProbes(), "")
 		if len(urls) > 0 {
 			fp, _ := frontedAppScriptProbes(urls[0], "www.google.com", key, target)
@@ -925,7 +925,7 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 
 		results := make([]result, 0, len(probes))
 		for _, p := range probes {
-			results = append(results, runProbe(client, p, 1, 12*time.Second, false))
+			results = append(results, runProbe(client, p, 1, 30*time.Second, false))
 		}
 		json.NewEncoder(w).Encode(results)
 	})
