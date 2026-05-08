@@ -37,14 +37,8 @@ func Start(appScriptURL, authKey, listenAddr, caCertPath, caKeyPath string) stri
 
 	ca, err := core.LoadCA(caCertPath, caKeyPath)
 	if err != nil {
-		// If load fails, try to regenerate once.
-		if genErr := core.GenerateCA(caCertPath, caKeyPath); genErr == nil {
-			ca, err = core.LoadCA(caCertPath, caKeyPath)
-		}
-		if err != nil {
-			lastErr = fmt.Sprintf("load CA: %s", err)
-			return lastErr
-		}
+		lastErr = fmt.Sprintf("load CA: %s", err)
+		return lastErr
 	}
 
 	client := core.NewHTTPClient(defaultTimeout)

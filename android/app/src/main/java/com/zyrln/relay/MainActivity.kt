@@ -79,6 +79,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val errorReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            activeUrl = null
+            activeKey = null
+            updateUI(running = false)
+            val message = intent?.getStringExtra(RelayVpnService.EXTRA_ERROR)
+                ?: getString(R.string.error_relay_start_generic)
+            Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -111,6 +122,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         registerReceiver(startedReceiver, IntentFilter("com.zyrln.relay.STARTED"), RECEIVER_NOT_EXPORTED)
         registerReceiver(stopReceiver, IntentFilter("com.zyrln.relay.STOPPED"), RECEIVER_NOT_EXPORTED)
+        registerReceiver(errorReceiver, IntentFilter(RelayVpnService.ACTION_ERROR), RECEIVER_NOT_EXPORTED)
         if (Mobile.isRunning() && activeUrl == null) {
             activeUrl = prefs.getString("url", null)
             activeKey = prefs.getString("key", null)
@@ -122,6 +134,7 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
         unregisterReceiver(startedReceiver)
         unregisterReceiver(stopReceiver)
+        unregisterReceiver(errorReceiver)
     }
 
     private fun updateUI(running: Boolean) {
@@ -130,6 +143,7 @@ class MainActivity : AppCompatActivity() {
                 if (running) R.color.dot_active else R.color.dot_inactive)
             binding.statusText.setText(if (running) R.string.status_running else R.string.status_stopped)
             binding.btnImportConfig.isEnabled = !running
+            binding.btnInstallCA.isEnabled = !running
             refreshList(running)
         }
     }
@@ -303,12 +317,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun connectConfig(url: String, key: String) {
+        if (!hasInstalledCA()) {
+            activeUrl = null
+            activeKey = null
+            updateUI(running = false)
+            Toast.makeText(this, R.string.error_ca_required, Toast.LENGTH_LONG).show()
+            return
+        }
+
         activeUrl = url
         activeKey = key
         prefs.edit().putString("url", url).putString("key", key).apply()
         refreshList(running = false)
         val vpnIntent = VpnService.prepare(this)
         if (vpnIntent != null) vpnPermissionLauncher.launch(vpnIntent) else launchVpnService()
+    }
+
+    private fun hasInstalledCA(): Boolean {
+        val certDir = File(filesDir, "certs")
+        return File(certDir, "ca.pem").exists() && File(certDir, "ca.key").exists()
     }
 
     private fun launchVpnService() {

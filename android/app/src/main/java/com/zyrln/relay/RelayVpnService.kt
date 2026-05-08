@@ -22,8 +22,10 @@ class RelayVpnService : VpnService() {
         const val TAG = "RelayVpnService"
         const val ACTION_START = "com.zyrln.relay.START"
         const val ACTION_STOP = "com.zyrln.relay.STOP"
+        const val ACTION_ERROR = "com.zyrln.relay.ERROR"
         const val EXTRA_URL = "url"
         const val EXTRA_KEY = "key"
+        const val EXTRA_ERROR = "error"
         const val NOTIF_ID = 1
         const val CHANNEL_ID = "zyrln_vpn"
         private const val PROXY_PORT = 8085
@@ -50,22 +52,16 @@ class RelayVpnService : VpnService() {
         val certPath = File(certDir, "ca.pem").absolutePath
         val keyPath = File(certDir, "ca.key").absolutePath
 
-        // Generate CA if it doesn't exist yet.
-        if (!File(certPath).exists()) {
-            val err = Mobile.generateCA(certPath, keyPath)
-            if (err.isNotEmpty()) {
-                Log.e(TAG, "generateCA failed: $err")
-                stopSelf()
-                return
-            }
-            Log.i(TAG, "CA generated: $certPath")
+        if (!File(certPath).exists() || !File(keyPath).exists()) {
+            failStart(getString(R.string.error_ca_required))
+            return
         }
 
         // Start the Go relay proxy.
         val err = Mobile.start(url, key, "127.0.0.1:$PROXY_PORT", certPath, keyPath)
         if (err.isNotEmpty()) {
             Log.e(TAG, "relay start failed: $err")
-            stopSelf()
+            failStart(getString(R.string.error_relay_start_failed, err))
             return
         }
         Log.i(TAG, "relay proxy started on 127.0.0.1:$PROXY_PORT")
@@ -85,6 +81,16 @@ class RelayVpnService : VpnService() {
             Mobile.stop()
             stopSelf()
         }
+    }
+
+    private fun failStart(message: String) {
+        Log.e(TAG, message)
+        Mobile.stop()
+        vpnInterface?.close()
+        vpnInterface = null
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        sendBroadcast(Intent(ACTION_ERROR).putExtra(EXTRA_ERROR, message))
+        stopSelf()
     }
 
     private fun stopRelay() {

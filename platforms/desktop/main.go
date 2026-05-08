@@ -846,17 +846,8 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 
 		ca, err := core.LoadCA(caCertPath, caKeyPath)
 		if err != nil {
-			// Try to auto-generate if load fails
-			fmt.Printf("⚠️ CA certificate missing or invalid; automatically generating new CA...\n")
-			if genErr := core.GenerateCA(caCertPath, caKeyPath); genErr == nil {
-				ca, err = core.LoadCA(caCertPath, caKeyPath)
-			}
-			if err != nil {
-				http.Error(w, "failed to load CA: "+err.Error(), http.StatusInternalServerError)
-				return
-			}
-			fmt.Printf("✅ CA generated successfully. Path: %s\n", caCertPath)
-			fmt.Printf("👉 NOTE: You must import this certificate into your browser for HTTPS to work.\n")
+			http.Error(w, "CA certificate missing or invalid. Install certificate first.", http.StatusBadRequest)
+			return
 		}
 
 		srv, ln, err := startProxy(listen, urls, key, ca)

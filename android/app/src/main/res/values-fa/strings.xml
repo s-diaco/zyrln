@@ -20,6 +20,9 @@
     <string name="vpn_notification_text">پروکسی روی 127.0.0.1:8085 فعال است</string>
     <string name="channel_name">وضعیت فیلترشکن</string>
     <string name="error_vpn_permission">اجازه دسترسی به VPN داده نشد</string>
+    <string name="error_ca_required">قبل از اتصال، گواهینامه CA را نصب کنید.</string>
+    <string name="error_relay_start_failed">شروع رله ناموفق بود: %1$s</string>
+    <string name="error_relay_start_generic">رله شروع نشد</string>
     <string name="btn_connect">اتصال</string>
     <string name="btn_disconnect">قطع اتصال</string>
     <string name="msg_clipboard_empty">کلیپ‌بورد خالی است</string>

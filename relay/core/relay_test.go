@@ -112,6 +112,58 @@ func TestBuildRelayPayload_MethodUppercased(t *testing.T) {
 	}
 }
 
+func TestRequestPriority_PageAssetsBeforeTelemetry(t *testing.T) {
+	cases := []struct {
+		name string
+		item *coalescerItem
+	}{
+		{
+			name: "document",
+			item: &coalescerItem{method: "GET", targetURL: "https://example.com/", headers: map[string]string{"Accept": "text/html"}},
+		},
+		{
+			name: "style",
+			item: &coalescerItem{method: "GET", targetURL: "https://example.com/app.css", headers: map[string]string{}},
+		},
+		{
+			name: "script",
+			item: &coalescerItem{method: "GET", targetURL: "https://example.com/app.js?v=1", headers: map[string]string{}},
+		},
+		{
+			name: "telemetry",
+			item: &coalescerItem{method: "POST", targetURL: "https://www.google.com/gen_204", headers: map[string]string{}},
+		},
+	}
+
+	if !(requestPriority(cases[0].item) < requestPriority(cases[1].item) &&
+		requestPriority(cases[1].item) < requestPriority(cases[2].item) &&
+		requestPriority(cases[2].item) < requestPriority(cases[3].item)) {
+		t.Fatalf("unexpected priority order: %s=%d %s=%d %s=%d %s=%d",
+			cases[0].name, requestPriority(cases[0].item),
+			cases[1].name, requestPriority(cases[1].item),
+			cases[2].name, requestPriority(cases[2].item),
+			cases[3].name, requestPriority(cases[3].item))
+	}
+}
+
+func TestPrioritizeBatch_ReordersWithoutDroppingAndKeepsStableOrder(t *testing.T) {
+	telemetry := &coalescerItem{method: "POST", targetURL: "https://www.google.com/gen_204", headers: map[string]string{}}
+	image := &coalescerItem{method: "GET", targetURL: "https://example.com/photo.webp", headers: map[string]string{}}
+	css1 := &coalescerItem{method: "GET", targetURL: "https://example.com/a.css", headers: map[string]string{}}
+	css2 := &coalescerItem{method: "GET", targetURL: "https://example.com/b.css", headers: map[string]string{}}
+	doc := &coalescerItem{method: "GET", targetURL: "https://example.com/", headers: map[string]string{"Accept": "text/html"}}
+
+	batch := []*coalescerItem{telemetry, image, css1, css2, doc}
+	prioritizeBatch(batch)
+
+	want := []*coalescerItem{doc, css1, css2, image, telemetry}
+	for i := range want {
+		if batch[i] != want[i] {
+			t.Fatalf("batch[%d] = %q, want %q", i, batch[i].targetURL, want[i].targetURL)
+		}
+	}
+}
+
 // --- newFrontedPOST ---
 
 func TestNewFrontedPOST_BadURL(t *testing.T) {

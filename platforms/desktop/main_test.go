@@ -451,6 +451,22 @@ func TestGUIStartRequiresConfig(t *testing.T) {
 	}
 }
 
+func TestGUIStartRequiresExistingCA(t *testing.T) {
+	resetGUIStateForTest(t)
+	dir := t.TempDir()
+	writeConfigForTest(t, dir, "fronted-appscript-url = https://script.google.com/macros/s/ABC/exec\nauth-key = secret\n")
+	handler := newTestGUIHandler(t, dir, nil)
+
+	resp := httptest.NewRecorder()
+	handler.ServeHTTP(resp, httptest.NewRequest(http.MethodPost, "/api/start", nil))
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("missing CA status = %d, want %d; body=%s", resp.Code, http.StatusBadRequest, resp.Body.String())
+	}
+	if !strings.Contains(resp.Body.String(), "Install certificate first") {
+		t.Fatalf("missing CA body = %q", resp.Body.String())
+	}
+}
+
 func TestGUIStartStopWithInjectedStarter(t *testing.T) {
 	resetGUIStateForTest(t)
 	dir := t.TempDir()
@@ -474,8 +490,13 @@ func TestGUIStartStopWithInjectedStarter(t *testing.T) {
 		return &http.Server{}, noopListener{}, nil
 	}
 	handler := newTestGUIHandler(t, dir, starter)
-
 	resp := httptest.NewRecorder()
+	handler.ServeHTTP(resp, httptest.NewRequest(http.MethodPost, "/api/init-ca", nil))
+	if resp.Code != http.StatusOK {
+		t.Fatalf("POST /api/init-ca status = %d, body=%s", resp.Code, resp.Body.String())
+	}
+
+	resp = httptest.NewRecorder()
 	handler.ServeHTTP(resp, httptest.NewRequest(http.MethodPost, "/api/start", nil))
 	if resp.Code != http.StatusOK {
 		t.Fatalf("POST /api/start status = %d, body=%s", resp.Code, resp.Body.String())

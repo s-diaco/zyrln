@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -293,16 +294,108 @@ func (c *Coalescer) run() {
 		}
 		timer.Stop()
 
+		prioritizeBatch(batch)
+
 		if len(batch) == 1 {
-			resp, err := RelayRequestMulti(c.client, c.appScriptURLs, c.frontDomain, c.authKey,
-				batch[0].method, batch[0].targetURL, batch[0].headers, batch[0].body, c.timeout)
-			batch[0].result <- coalescerResult{resp, err}
+			go c.flushSingle(batch[0])
 			continue
 		}
 
 		// Multiple requests — send as one batch call.
 		go c.flush(batch)
 	}
+}
+
+func (c *Coalescer) flushSingle(item *coalescerItem) {
+	resp, err := RelayRequestMulti(c.client, c.appScriptURLs, c.frontDomain, c.authKey,
+		item.method, item.targetURL, item.headers, item.body, c.timeout)
+	item.result <- coalescerResult{resp, err}
+}
+
+func prioritizeBatch(batch []*coalescerItem) {
+	sort.SliceStable(batch, func(i, j int) bool {
+		return requestPriority(batch[i]) < requestPriority(batch[j])
+	})
+}
+
+func requestPriority(item *coalescerItem) int {
+	method := strings.ToUpper(item.method)
+	target := strings.ToLower(item.targetURL)
+	accept := strings.ToLower(headerValue(item.headers, "Accept"))
+	dest := strings.ToLower(headerValue(item.headers, "Sec-Fetch-Dest"))
+
+	if method == "GET" {
+		switch {
+		case strings.Contains(accept, "text/html") || dest == "document":
+			return 0
+		case strings.Contains(accept, "text/css") || hasURLPathSuffix(target, ".css") || dest == "style":
+			return 5
+		case strings.Contains(accept, "javascript") || hasURLPathSuffix(target, ".js") || dest == "script":
+			return 10
+		case dest == "font" || hasURLPathSuffix(target, ".woff") || hasURLPathSuffix(target, ".woff2") || hasURLPathSuffix(target, ".ttf"):
+			return 20
+		case dest == "image" || isImageURL(target):
+			return 30
+		case isTelemetryURL(target):
+			return 80
+		default:
+			return 40
+		}
+	}
+
+	if isTelemetryURL(target) {
+		return 80
+	}
+	return 40
+}
+
+func headerValue(headers map[string]string, key string) string {
+	for k, v := range headers {
+		if strings.EqualFold(k, key) {
+			return v
+		}
+	}
+	return ""
+}
+
+func hasURLPathSuffix(raw, suffix string) bool {
+	path := raw
+	if i := strings.IndexByte(path, '?'); i >= 0 {
+		path = path[:i]
+	}
+	return strings.HasSuffix(path, suffix)
+}
+
+func isImageURL(raw string) bool {
+	for _, ext := range []string{".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp", ".avif"} {
+		if hasURLPathSuffix(raw, ext) {
+			return true
+		}
+	}
+	return false
+}
+
+func isTelemetryURL(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(u.Hostname())
+	path := strings.ToLower(u.EscapedPath())
+
+	if strings.Contains(path, "gen_204") ||
+		strings.Contains(path, "generate_204") ||
+		strings.Contains(path, "domainreliability/upload") ||
+		strings.Contains(path, "/collect") ||
+		strings.Contains(path, "/g/collect") ||
+		strings.Contains(path, "/log") {
+		return true
+	}
+
+	return strings.Contains(host, "analytics") ||
+		strings.Contains(host, "doubleclick.net") ||
+		strings.Contains(host, "googletagmanager.com") ||
+		strings.Contains(host, "googleadservices.com")
 }
 
 func (c *Coalescer) flush(batch []*coalescerItem) {
