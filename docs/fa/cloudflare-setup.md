@@ -1,47 +1,42 @@
-# راه‌اندازی با Cloudflare Worker
+# راه‌اندازی Cloudflare Worker
 
-استفاده از Cloudflare Worker یک جایگزین عالی برای سرور مجازی (VPS) به عنوان رله خروجی است. اگر نمی‌خواهید سرور شخصی خودتان را مدیریت کنید، این روش بسیار ساده‌تر است و طرح رایگان آن برای استفاده شخصی کفایت می‌کند.
+جایگزین VPS — طرح رایگان برای استفاده شخصی کافی است.
 
-## معماری شبکه با Cloudflare
+## دیپلوی Worker
 
-```
-دستگاه شما ← پروکسی محلی ← اسکریپت گوگل ← ورکر کلادفلر ← سایت مقصد
-```
+1. به [dash.cloudflare.com](https://dash.cloudflare.com) برو
+2. **Workers & Pages → Create application → Worker**
+3. کد پیش‌فرض را پاک کن و محتوای [`relay/cloudflare/worker.js`](../../relay/cloudflare/worker.js) را جایگذاری کن
+4. روی **Deploy** کلیک کن
+5. آدرس Worker را کپی کن:
+   `https://worker-name.subdomain.workers.dev`
 
-## نصب و راه‌اندازی (Deploy)
+## به‌روزرسانی Apps Script
 
-۱. به [dash.cloudflare.com](https://dash.cloudflare.com) بروید ← بخش **Workers & Pages** ← دکمه **Create application** ← تب **Worker**.
-۲. کد پیش‌فرض را پاک کرده و محتویات فایل `relay/cloudflare/worker.js` را در آنجا قرار دهید.
-۳. دکمه **Deploy** را بزنید.
-۴. لینک اختصاصی ورکر خود را کپی کنید. چیزی شبیه به این خواهد بود:
-   ```
-   https://your-worker.your-subdomain.workers.dev
-   ```
-
-## تنظیم اسکریپت گوگل برای استفاده از ورکر
-
-در فایل اسکریپت گوگل خود (`relay/apps-script/Code.gs`) مقادیر را به صورت زیر تغییر دهید:
+در `relay/apps-script/Code.gs` مقدار `EXIT_RELAY_URL` را به آدرس Worker تنظیم کن:
 
 ```js
-const AUTH_KEY       = "YOUR_KEY";  // همان کلیدی که قبلاً ساختید
-const EXIT_RELAY_URL = "https://your-worker.your-subdomain.workers.dev/relay";
-const EXIT_RELAY_KEY = "";   // خالی بگذارید؛ در ورکر نیازی به این کلید نیست
+const EXIT_RELAY_URL = "https://worker-name.subdomain.workers.dev/relay";
+const EXIT_RELAY_KEY = "";   // خالی بگذار — Worker به این کلید نیاز ندارد
 ```
 
-سپس اسکریپت گوگل را دوباره دیپلوی کنید (Deploy → Manage deployments → ساخت یک نسخه جدید).
+سپس Apps Script را دوباره دیپلوی کن: **Deploy → Manage deployments → New version**.
 
 ## مقایسه Cloudflare و VPS
 
-| ویژگی | Cloudflare Worker | VPS Relay |
+| | Cloudflare Worker | VPS |
 |---|---|---|
-| هزینه | طرح رایگان دارد | حدود ۵ دلار در ماه |
-| نصب | از طریق پنل وب | سرویس سیستم لینوکس |
-| کنترل | کمتر (کلادفلر ترافیک را می‌بیند) | کامل |
-| پایداری | بسیار بالا (CDN جهانی) | وابسته به دیتاسنتر سرور |
-| محدودیت | ۱۰۰ هزار درخواست روزانه (رایگان) | نامحدود |
+| هزینه | رایگان | ~۵ دلار در ماه |
+| زمان راه‌اندازی | ۲ دقیقه | ۱۵ دقیقه |
+| IP ثابت | ندارد | دارد |
+| ChatGPT / سایت‌های Cloudflare | خیر | بله |
+| سایر سایت‌ها | بله | بله |
+| عبور از CAPTCHA | خیر | بله |
+| Cloudflare متادیتای ترافیک را می‌بیند | بله | خیر |
 
-## نکات مهم
+## محدودیت طرح رایگان
 
-- طرح رایگان کلادفلر اجازه ۱۰۰,۰۰۰ درخواست در روز را می‌دهد که برای وب‌گردی معمولی کاملاً کافی است.
-- کلادفلر می‌تواند متادیتای ترافیک (سایت‌هایی که باز می‌کنید) را ببیند. اگر امنیت متادیتا برایتان اولویت بالایی دارد، از VPS استفاده کنید.
-- کد ورکر در فایل `relay/cloudflare/worker.js` قرار دارد و نیازی به نصب پیش‌نیازهای جانبی ندارد.
+- ۱۰۰,۰۰۰ درخواست در روز
+- ۱۰ میلی‌ثانیه CPU به ازای هر درخواست
+
+برای مرور عادی کافی است. استفاده سنگین (ویدیو، دانلودهای حجیم) ممکن است به سقف روزانه بخورد — یک Worker دیگر زیر اکانت Cloudflare دیگری اضافه کن.

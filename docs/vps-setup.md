@@ -1,27 +1,41 @@
 # VPS Relay Setup
 
-The VPS relay is the exit node. It receives requests from Apps Script and fetches the real target URL.
+The VPS is the exit node — it fetches real websites on behalf of Apps Script.
 
-## Prerequisites
+## Requirements
 
+- A Linux VPS (amd64 or arm64) with a public IP
 - Go 1.25+ on your local machine (for cross-compiling)
-- A Linux VPS (amd64). For ARM, change `GOARCH=amd64` to `GOARCH=arm64` in the build command
+- Port 8787 open on the firewall
 
-## Build and Deploy
+## Build
 
-On your local machine, cross-compile for Linux:
+On your local machine:
 
 ```bash
+# For amd64 (most VPS providers)
 GOOS=linux GOARCH=amd64 go build -o zyrln-relay ./relay/vps/main.go
+
+# For arm64 (Oracle free tier, etc.)
+GOOS=linux GOARCH=arm64 go build -o zyrln-relay ./relay/vps/main.go
 ```
 
 Copy to the server:
 
 ```bash
-scp zyrln-relay root@YOUR_VPS:/usr/local/bin/
+scp zyrln-relay root@YOUR_VPS_IP:/usr/local/bin/
 ```
 
 ## Run as a systemd Service
+
+Create `/etc/zyrln-relay.env`:
+
+```
+ZYRLN_RELAY_LISTEN=0.0.0.0:8787
+ZYRLN_RELAY_KEY=
+```
+
+> `ZYRLN_RELAY_KEY` is optional. If you set it, put the same value in `EXIT_RELAY_KEY` in your Apps Script. Leave both empty if you don't need it.
 
 Create `/etc/systemd/system/zyrln-relay.service`:
 
@@ -42,15 +56,6 @@ RestartSec=3
 WantedBy=multi-user.target
 ```
 
-Create `/etc/zyrln-relay.env`:
-
-```
-ZYRLN_RELAY_LISTEN=0.0.0.0:8787
-ZYRLN_RELAY_KEY=your-optional-relay-key
-```
-
-If you set `ZYRLN_RELAY_KEY`, you must set the same value in Apps Script's `EXIT_RELAY_KEY` constant. Otherwise Apps Script won't be able to reach the VPS and all relay requests will fail with 401.
-
 Enable and start:
 
 ```bash
@@ -61,34 +66,25 @@ systemctl status zyrln-relay   # should show "active (running)"
 
 ## Open the Firewall
 
-Allow inbound traffic on port 8787:
-
 ```bash
 ufw allow 8787/tcp
 ```
 
-(Skip if your VPS provider manages firewall rules via a dashboard instead.)
+Skip if your VPS provider manages firewall rules via a web dashboard.
 
-## Test
+## Verify It's Working
 
 ```bash
-# If ZYRLN_RELAY_KEY is set, include the header; omit it if key is empty.
-curl -X POST http://YOUR_VPS:8787/relay \
+curl -s -X POST http://YOUR_VPS_IP:8787/relay \
   -H "Content-Type: application/json" \
-  -H "X-Relay-Key: your-optional-relay-key" \
   -d '{"u":"https://www.gstatic.com/generate_204","m":"GET","h":{},"r":true}'
-# {"s":204,...}
+# expected: {"s":204,...}
 ```
 
-## Flags
+## Available Flags
 
 | Flag | Default | Description |
 |---|---|---|
-| `-listen` | `127.0.0.1:8787` | Listen address (use `0.0.0.0:8787` for public) |
-| `-key` | `""` | Optional auth key required in `X-Relay-Key` header |
-| `-timeout` | `45s` | Timeout for requests to the target |
-
-## Using Cloudflare Worker Instead
-
-If you prefer not to run a VPS, use `relay/cloudflare/worker.js` as the exit relay.
-See [docs/cloudflare-setup.md](cloudflare-setup.md) for deployment instructions.
+| `-listen` | `127.0.0.1:8787` | Listen address — use `0.0.0.0:8787` to accept external connections |
+| `-key` | `""` | Optional auth key checked in `X-Relay-Key` request header |
+| `-timeout` | `45s` | Timeout for fetching target URLs |

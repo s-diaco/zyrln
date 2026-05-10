@@ -1,29 +1,43 @@
-# راه‌اندازی رله روی سرور مجازی (VPS)
+# راه‌اندازی رله روی VPS
 
-رله VPS به عنوان گره خروجی (Exit Node) عمل می‌کند. این بخش درخواست‌ها را از اسکریپت گوگل دریافت کرده و محتوای واقعی سایت مقصد را فراخوانی می‌کند.
+VPS گره خروجی است — سایت‌های واقعی را از طرف Apps Script باز می‌کند.
 
 ## پیش‌نیازها
 
-- نصب Go نسخه ۱.۲۵ یا بالاتر روی سیستم محلی (برای کامپایل کردن).
-- یک سرور مجازی لینوکس (معمولاً amd64). اگر از پردازنده‌های ARM استفاده می‌کنید، در دستور ساخت مقدار `GOARCH=amd64` را به `GOARCH=arm64` تغییر دهید.
+- یک VPS لینوکس (amd64 یا arm64) با IP عمومی
+- Go نسخه ۱.۲۵+ روی ماشین محلی (برای کامپایل)
+- پورت ۸۷۸۷ در فایروال باز باشد
 
-## ساخت و انتقال (Build and Deploy)
+## ساخت
 
-روی سیستم محلی خود، برنامه را برای لینوکس کامپایل کنید:
+روی ماشین محلی:
 
 ```bash
+# برای amd64 (اکثر VPS‌ها)
 GOOS=linux GOARCH=amd64 go build -o zyrln-relay ./relay/vps/main.go
+
+# برای arm64 (Oracle free tier و غیره)
+GOOS=linux GOARCH=arm64 go build -o zyrln-relay ./relay/vps/main.go
 ```
 
-فایل ساخته شده را به سرور منتقل کنید:
+انتقال به سرور:
 
 ```bash
-scp zyrln-relay root@YOUR_VPS_IP:/usr/local/bin/
+scp zyrln-relay root@IP_VPS_شما:/usr/local/bin/
 ```
 
-## اجرا به عنوان سرویس (systemd)
+## اجرا به عنوان سرویس systemd
 
-فایل `/etc/systemd/system/zyrln-relay.service` را بسازید:
+فایل `/etc/zyrln-relay.env` را بساز:
+
+```
+ZYRLN_RELAY_LISTEN=0.0.0.0:8787
+ZYRLN_RELAY_KEY=
+```
+
+> `ZYRLN_RELAY_KEY` اختیاری است. اگر مقدار تنظیم کردی، همان مقدار را در `EXIT_RELAY_KEY` در Apps Script هم قرار بده. اگر نیازی نداری، هر دو را خالی بگذار.
+
+فایل `/etc/systemd/system/zyrln-relay.service` را بساز:
 
 ```ini
 [Unit]
@@ -42,53 +56,35 @@ RestartSec=3
 WantedBy=multi-user.target
 ```
 
-فایل تنظیمات محیطی `/etc/zyrln-relay.env` را بسازید:
-
-```
-ZYRLN_RELAY_LISTEN=0.0.0.0:8787
-ZYRLN_RELAY_KEY=your-optional-relay-key
-```
-
-اگر مقدار `ZYRLN_RELAY_KEY` را تنظیم کردید، حتماً باید همین مقدار را در ثابت `EXIT_RELAY_KEY` در اسکریپت گوگل (Apps Script) نیز وارد کنید. در غیر این صورت، اسکریپت گوگل نمی‌تواند به VPS متصل شود و تمام درخواست‌ها با خطای 401 مواجه می‌شوند.
-
 فعال‌سازی و اجرا:
 
 ```bash
 systemctl daemon-reload
 systemctl enable --now zyrln-relay
-systemctl status zyrln-relay   # باید وضعیت active (running) را نشان دهد
+systemctl status zyrln-relay   # باید "active (running)" نشان بدهد
 ```
 
-## تنظیم دیوار آتش (Firewall)
-
-اجازه ورود ترافیک روی پورت ۸۷۸۷ را بدهید:
+## باز کردن فایروال
 
 ```bash
 ufw allow 8787/tcp
 ```
 
-(اگر ارائه‌دهنده VPS شما از طریق داشبورد وب دیوار آتش را مدیریت می‌کند، این مرحله را در آنجا انجام دهید.)
+اگر VPS تو از طریق داشبورد وب فایروال را مدیریت می‌کند، این مرحله را آنجا انجام بده.
 
-## تست نهایی
+## تست
 
 ```bash
-# اگر کلید تنظیم کرده‌اید، هدر X-Relay-Key را هم بفرستید؛ در غیر این صورت آن را حذف کنید.
-curl -X POST http://YOUR_VPS_IP:8787/relay \
+curl -s -X POST http://IP_VPS_شما:8787/relay \
   -H "Content-Type: application/json" \
-  -H "X-Relay-Key: your-optional-relay-key" \
   -d '{"u":"https://www.gstatic.com/generate_204","m":"GET","h":{},"r":true}'
-# باید خروجی {"s":204,...} دریافت کنید.
+# باید خروجی {"s":204,...} بگیری
 ```
 
-## پارامترها (Flags)
+## پارامترهای موجود
 
-| پارامتر | پیش‌فرض | توضیحات |
+| پارامتر | پیش‌فرض | توضیح |
 |---|---|---|
-| `-listen` | `127.0.0.1:8787` | آدرس گوش دادن (از `0.0.0.0:8787` برای دسترسی عمومی استفاده کنید) |
-| `-key` | `""` | کلید اختیاری برای امنیت بیشتر که در هدر `X-Relay-Key` چک می‌شود |
-| `-timeout` | `45s` | حداکثر زمان انتظار برای دریافت پاسخ از مقصد |
-
-## جایگزین: استفاده از Cloudflare Worker
-
-اگر تمایلی به استفاده از VPS ندارید، می‌توانید از `relay/cloudflare/worker.js` به عنوان رله خروجی استفاده کنید.
-راهنمای نصب: [docs/fa/cloudflare-setup.md](cloudflare-setup.md)
+| `-listen` | `127.0.0.1:8787` | آدرس گوش دادن — برای اتصال خارجی از `0.0.0.0:8787` استفاده کن |
+| `-key` | `""` | کلید امنیتی اختیاری که در هدر `X-Relay-Key` چک می‌شود |
+| `-timeout` | `45s` | تایم‌اوت برای دریافت پاسخ از سایت مقصد |

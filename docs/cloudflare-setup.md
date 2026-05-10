@@ -1,47 +1,42 @@
 # Cloudflare Worker Setup
 
-The Cloudflare Worker is an alternative exit relay to the VPS. Use it if you don't want to run your own server. The free tier is enough for personal use.
-
-## Architecture with Cloudflare
-
-```
-device → local proxy → Google-fronted Apps Script → Cloudflare Worker → target site
-```
+An alternative to running your own VPS. The free tier handles personal use easily.
 
 ## Deploy the Worker
 
-1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → **Create application** → **Worker**
-2. Replace the default code with the contents of `relay/cloudflare/worker.js`
-3. Click **Deploy**
-4. Copy the Worker URL, which looks like:
-   ```
-   https://your-worker.your-subdomain.workers.dev
-   ```
+1. Go to [dash.cloudflare.com](https://dash.cloudflare.com)
+2. **Workers & Pages → Create application → Worker**
+3. Replace the default code with the contents of [`relay/cloudflare/worker.js`](../relay/cloudflare/worker.js)
+4. Click **Deploy**
+5. Copy the Worker URL:
+   `https://your-worker.your-subdomain.workers.dev`
 
-## Configure Apps Script to Use the Worker
+## Update Apps Script
 
-In `relay/apps-script/Code.gs`, set:
+In `relay/apps-script/Code.gs`, set `EXIT_RELAY_URL` to your Worker URL:
 
 ```js
-const AUTH_KEY       = "YOUR_KEY_FROM_PREREQUISITES";  // same key as before
 const EXIT_RELAY_URL = "https://your-worker.your-subdomain.workers.dev/relay";
-const EXIT_RELAY_KEY = "";   // leave empty, Cloudflare Workers don't use this
+const EXIT_RELAY_KEY = "";   // leave empty — Workers don't use this
 ```
 
-Then redeploy the Apps Script web app (Deploy → Manage deployments → create a new version).
+Then redeploy the Apps Script: **Deploy → Manage deployments → New version**.
 
 ## Cloudflare vs VPS
 
-| | Cloudflare Worker | VPS Relay |
+| | Cloudflare Worker | VPS |
 |---|---|---|
-| Cost | Free tier available | ~$5/mo |
-| Setup | Deploy via dashboard | systemd service |
-| Control | Less (Cloudflare sees traffic) | Full |
-| Reliability | High (global CDN) | Depends on server |
-| Request limit | 100k/day free tier | Unlimited |
+| Cost | Free | ~$5/mo |
+| Setup time | 2 minutes | 15 minutes |
+| Fixed IP | No | Yes |
+| ChatGPT / Cloudflare-protected sites | No | Yes |
+| All other sites | Yes | Yes |
+| Passes CAPTCHAs | No | Yes |
+| Cloudflare sees traffic metadata | Yes | No |
 
-## Notes
+## Free Tier Limits
 
-- The free tier has a 10ms CPU time limit per request and 100,000 requests/day, enough for light browsing but not heavy use
-- Cloudflare can see the relay traffic metadata (destination URLs). Use the VPS relay if that's a concern
-- The Worker code is in `relay/cloudflare/worker.js` and requires no dependencies
+- 100,000 requests/day
+- 10ms CPU time per request
+
+Enough for normal browsing. Heavy use (video, large downloads) may hit the daily limit — add a second Worker under a different Cloudflare account.

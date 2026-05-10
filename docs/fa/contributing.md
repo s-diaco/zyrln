@@ -1,50 +1,52 @@
-# راهنمای مشارکت در پروژه (Contributing)
-
-برای درک کلی از نقش هر بخش در این پروژه، جدول **Components** را در فایل [README_FA.md](../../README_FA.md#اجزای-پروژه) مشاهده کنید.
+# راهنمای مشارکت
 
 ## ساختار پروژه
 
 ```
 zyrln/
 ├── platforms/
-│   ├── desktop/        # کدهای کلاینت دسکتاپ (بسته اصلی)
-│   │   ├── main.go     # تنظیمات، ابزار تست (Probe)، اجرای رله و پروکسی
+│   ├── desktop/        # باینری دسکتاپ (main package)
+│   │   ├── main.go     # فلگ‌های CLI، runner پروب، لانچر پروکسی
 │   │   └── main_test.go
-│   └── mobile/         # خروجی‌های gomobile برای اندروید
+│   └── mobile/         # bindings های gomobile برای اندروید
 │       └── mobile.go   # API خروجی: Start, Stop, IsRunning, LastError, GenerateCA
 │
 ├── relay/
-│   ├── core/           # منطق اصلی رله (مشترک بین دسکتاپ و اندروید)
-│   │   ├── relay.go    # ارسال درخواست، تکنیک Domain-Fronting و کدگذاری داده‌ها
-│   │   ├── proxy.go    # پیاده‌سازی پروکسی HTTP و هندلر MITM برای HTTPS
-│   │   ├── cert.go     # تولید CA، بارگذاری و امضای گواهینامه‌های موقت هر دامنه
+│   ├── core/           # منطق مشترک رله (هم دسکتاپ هم اندروید استفاده می‌کنند)
+│   │   ├── relay.go    # RelayRequest، HTTP با domain-fronting، کدگذاری payload
+│   │   ├── proxy.go    # StartProxy، هندلر HTTP+HTTPS MITM
+│   │   ├── cert.go     # GenerateCA، LoadCA، CertForHost (گواهینامه موقت هر دامنه)
+│   │   ├── direct.go   # حالت مستقیم: تشخیص دامنه‌های گوگل، dial با fragmentation
+│   │   ├── fragment.go # تکه‌تکه کردن ClientHello TLS برای دور زدن SNI
 │   │   └── *_test.go
 │   ├── apps-script/
-│   │   └── Code.gs     # اسکریپت سمت گوگل (Apps Script)
+│   │   └── Code.gs     # رله Google Apps Script (روی سرورهای گوگل اجرا می‌شود)
 │   ├── vps/
-│   │   └── main.go     # رله خروجی برای اجرا روی سرور شخصی (VPS)
+│   │   └── main.go     # باینری رله خروجی برای VPS
 │   └── cloudflare/
-│       └── worker.js   # رله خروجی جایگزین برای اجرا روی Cloudflare Worker
+│       └── worker.js   # رله خروجی جایگزین به عنوان Cloudflare Worker
 │
-├── android/            # پروژه اندروید استودیو
+├── android/            # پروژه Android Studio
 │   └── app/src/main/java/com/zyrln/relay/
-│       ├── MainActivity.kt      # رابط کاربری: اتصال، نصب گواهینامه و تنظیمات
-│       └── RelayVpnService.kt   # سرویس VPN: اجرای پروکسی Go و تنظیم پروکسی سیستم
+│       ├── MainActivity.kt      # رابط کاربری: اتصال/قطع، نصب CA، حالت مستقیم
+│       └── RelayVpnService.kt   # VpnService: اجرای پروکسی Go، تنظیم پروکسی سیستم
 │
-├── docs/               # فایل‌های راهنما
+├── docs/               # راهنماها
 ├── Makefile
 └── go.mod
 ```
 
 ## مفاهیم کلیدی
 
-بخش **`relay/core`** قلب تپنده پروژه است. هم نسخه دسکتاپ و هم اپلیکیشن اندروید از این بخش استفاده می‌کنند.
+**`relay/core`** قلب پروژه است. هم دسکتاپ و هم اندروید آن را import می‌کنند.
 
-- `relay.go`: وظیفه ساخت و ارسال درخواست رله از طریق تکنیک Domain-Fronting را دارد. در این تکنیک، `req.URL.Host` برابر با دامنه صوری (مثل `www.google.com`) قرار می‌گیرد تا اتصال TLS به آی‌پی‌های گوگل برقرار شود، در حالی که آدرس واقعی اسکریپت شما در هدر `Host` و داخل تونل امن TLS قرار می‌گیرد.
-- `proxy.go`: یک پروکسی HTTP است که ترافیک مرورگر را دریافت می‌کند. درخواست‌های HTTP مستقیم رله می‌شوند، اما درخواست‌های HTTPS از طریق تونل `CONNECT` و رمزگشایی محلی (MITM) پردازش می‌شوند.
-- `cert.go`: یک گواهینامه ریشه (CA) محلی می‌سازد و به ازای هر دامنه، یک گواهینامه موقت امضا می‌کند که در حافظه موقت (Cache) نگهداری می‌شود.
+- `relay.go`: درخواست رله را از طریق domain-fronting می‌سازد و می‌فرستد. ترفند domain-fronting این است که `req.URL.Host` به دامنه جلویی (مثلاً `www.google.com`) تنظیم می‌شود تا TLS به IP‌های گوگل وصل شود، در حالی که `req.Host` آدرس واقعی Apps Script را داخل تونل TLS رمزنگاری‌شده حمل می‌کند.
+- `proxy.go`: پروکسی HTTP که ترافیک مرورگر را می‌گیرد. درخواست‌های HTTP مستقیم رله می‌شوند؛ اتصال‌های HTTPS از تونل `CONNECT` با TLS termination محلی (MITM) استفاده می‌کنند.
+- `cert.go`: یک CA محلی می‌سازد و گواهینامه‌های leaf به ازای هر hostname روی demand امضا می‌کند، با cache در حافظه.
+- `direct.go`: حالت مستقیم برای سرویس‌های گوگل. دامنه‌های گوگل را تشخیص می‌دهد و اتصال مستقیم با fragmentation برقرار می‌کند — بدون MITM، بدون رله.
+- `fragment.go`: ClientHello اول TLS را به ۸۷ قطعه تصادفی تقسیم می‌کند با ۵ms تأخیر بین هر قطعه. این کار سیستم SNDPI را از خواندن SNI باز می‌دارد.
 
-بخش **`platforms/mobile`** یک رابط ساده مبتنی بر رشته (String) ارائه می‌دهد (`Start`, `Stop` و غیره)؛ زیرا gomobile در لبه‌های ارتباطی اندروید فقط از انواع داده‌های اولیه پشتیبانی می‌کند.
+**`platforms/mobile`** یک API flat مبتنی بر string ارائه می‌دهد (`Start`، `Stop` و غیره) چون gomobile فقط از انواع primitive در مرز پشتیبانی می‌کند. تمام خطاها به عنوان string برگردانده می‌شوند، نه مقادیر `error` در Go.
 
 ## اجرای تست‌ها
 
@@ -52,25 +54,39 @@ zyrln/
 go test ./relay/core/... ./platforms/desktop/...
 ```
 
-تست‌ها فقط از کتابخانه‌های استاندارد Go استفاده می‌کنند و نیازی به پکیج‌های تست جانبی ندارند.
-
-## ساخت برنامه (Building)
+یا همه چیز با هم:
 
 ```bash
-make desktop          # ساخت فایل اجرایی دسکتاپ
-make android-debug    # ساخت فایل نصب اندروید (نسخه دیباگ)
-make android          # ساخت فایل نصب نهایی اندروید
+go test ./...
 ```
 
-## افزودن تست جدید (Probe)
+تست‌ها فقط از کتابخانه استاندارد استفاده می‌کنند، بدون framework تست خارجی.
 
-تست‌های شبکه در فایل `platforms/desktop/main.go` و در تابع `defaultProbes()` تعریف شده‌اند. هر تست یک ساختار `probe` است:
+## ساخت
+
+```bash
+make desktop          # ساخت باینری ./zyrln
+make android-debug    # ساخت APK دیباگ (بدون keystore)
+make android          # ساخت APK نهایی امضاشده (نیاز به keystore)
+```
+
+راه‌اندازی اول gomobile:
+
+```bash
+go install golang.org/x/mobile/cmd/gomobile@latest
+gomobile init
+export ANDROID_HOME=~/Android/Sdk
+```
+
+## افزودن Probe جدید
+
+Probe‌ها در `platforms/desktop/main.go` در تابع `defaultProbes()` تعریف می‌شوند. هر probe یک struct `probe` است:
 
 ```go
 {
     ID:          "unique-id",
     Name:        "نام قابل خواندن",
-    Category:    "baseline",   // دسته‌بندی برای فیلتر کردن
+    Category:    "baseline",
     Method:      http.MethodGet,
     URL:         "https://example.com/",
     Expectation: "معنای موفقیت تست",
@@ -79,13 +95,13 @@ make android          # ساخت فایل نصب نهایی اندروید
 
 ## تغییر پروتکل رله
 
-فرمت داده‌های ارسالی در `relay/core/relay.go` (تابع `buildRelayPayload`) تعریف شده و باید با انتظارات فایل `relay/apps-script/Code.gs` کاملاً مطابقت داشته باشد. اگر تغییری در یک سمت ایجاد کردید، حتماً سمت دیگر را هم به‌روزرسانی کنید.
+فرمت payload رله در `relay/core/relay.go` (تابع `buildRelayPayload`) تعریف شده و باید با انتظارات `relay/apps-script/Code.gs` مطابقت داشته باشد. اگر یک طرف را تغییر دادی، طرف دیگر را هم به‌روز کن.
 
-## نکات امنیتی و Git
+## اسرار و Gitignore
 
-هرگز این موارد را در گیت Commit نکنید:
-- `config.env`: شامل آدرس اسکریپت و کلید اختصاصی شماست.
-- `certs/`: شامل کلید خصوصی گواهینامه محلی شماست.
-- هر فایلی که شامل `AUTH_KEY` یا کلیدهای رله باشد.
+هرگز commit نکن:
+- `config.env`: آدرس Apps Script و کلید امنیتی تو را دارد
+- `certs/`: کلید خصوصی CA محلی تو را دارد
+- هر فایلی که `AUTH_KEY` یا کلیدهای رله دارد
 
-این موارد در فایل `.gitignore` پوشش داده شده‌اند.
+این موارد در `.gitignore` پوشش داده شده‌اند.

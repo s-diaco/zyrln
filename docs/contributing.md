@@ -18,6 +18,8 @@ zyrln/
 │   │   ├── relay.go    # RelayRequest, domain-fronted HTTP, payload encoding
 │   │   ├── proxy.go    # StartProxy, HTTP+HTTPS MITM handler
 │   │   ├── cert.go     # GenerateCA, LoadCA, CertForHost (per-host leaf certs)
+│   │   ├── direct.go   # Direct mode: Google domain detection, fragmented dial
+│   │   ├── fragment.go # TLS ClientHello fragmentation to defeat SNI inspection
 │   │   └── *_test.go
 │   ├── apps-script/
 │   │   └── Code.gs     # Google Apps Script relay (runs on Google's servers)
@@ -43,6 +45,8 @@ zyrln/
 - `relay.go`: builds and sends a relay request through domain-fronting. The domain-fronting trick is that `req.URL.Host` is set to the front domain (e.g. `www.google.com`) so TLS connects to Google's IPs, while `req.Host` carries the real Apps Script hostname inside the encrypted TLS tunnel.
 - `proxy.go`: HTTP proxy that intercepts browser traffic. HTTP requests are relayed directly; HTTPS connections use `CONNECT` tunneling with local TLS termination (MITM).
 - `cert.go`: generates a local CA and signs per-hostname leaf certificates on demand, cached in memory.
+- `direct.go`: direct mode for Google services. Detects Google domains and dials them directly with fragmentation — no MITM, no relay.
+- `fragment.go`: splits the first TLS ClientHello into 87 random-boundary chunks with 5ms delay each, preventing SNDPI from reading the SNI field.
 
 **`platforms/mobile`** exposes a flat string-based API (`Start`, `Stop`, etc.) because gomobile only supports primitive types at the boundary. All errors are returned as strings, not Go `error` values.
 
