@@ -167,6 +167,7 @@ Flags:
 	serveProxyFlag := flag.Bool("serve-proxy", false, "start local HTTP and SOCKS5 proxies backed by the relay")
 	listenFlag := flag.String("listen", "127.0.0.1:8085", "listen address for -serve-proxy")
 	socksListenFlag := flag.String("socks-listen", "127.0.0.1:1080", "SOCKS5 listen address for -serve-proxy")
+	noDirectFlag := flag.Bool("no-direct", false, "disable direct TLS-fragmentation bypass for Google domains (route all traffic through relay)")
 	exportConfigFlag := flag.Bool("export-config", false, "print config as JSON for importing into the Android app")
 	initCAFlag := flag.Bool("init-ca", false, "generate a local CA certificate for HTTPS proxy interception")
 	frontRedirectsFlag := flag.Bool("front-redirects", false, "when a fronted probe gets a redirect, retry the Location using the front domain and encrypted Host override")
@@ -257,6 +258,10 @@ Flags:
 			os.Exit(1)
 		}
 		return
+	}
+
+	if *noDirectFlag {
+		core.SetDirectEnabled(false)
 	}
 
 	if *serveProxyFlag {
