@@ -182,8 +182,10 @@ ufw allow 8787/tcp
 make desktop
 
 # APK اندروید (نیاز به Android SDK و NDK)
-make keystore       # یک بار اجرا کن — کلید امضا می‌سازد
-make android        # APK نهایی می‌سازد
+# یک بار اجرا کن — کلید امضا می‌سازد
+make keystore
+# APK نهایی می‌سازد
+make android
 
 # APK دیباگ (بدون keystore)
 make android-debug
