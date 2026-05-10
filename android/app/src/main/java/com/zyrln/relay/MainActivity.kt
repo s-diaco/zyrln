@@ -659,6 +659,7 @@ class MainActivity : AppCompatActivity() {
         startService(Intent(this, RelayVpnService::class.java).apply { action = RelayVpnService.ACTION_STOP })
         activeUrl = null
         activeKey = null
+        stopUptimeTicker()
         updateUI(running = false)
     }
 
