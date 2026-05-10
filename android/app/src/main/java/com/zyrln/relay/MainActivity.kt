@@ -142,6 +142,16 @@ class MainActivity : AppCompatActivity() {
         binding.btnDirect.setOnClickListener { toggleDirectMode() }
         binding.btnShareLog.setOnClickListener { shareLog() }
         binding.btnPing.setOnClickListener {
+            // Direct-only mode: measure a fragmented connection to gstatic, no relay needed.
+            if (directOnlySelected || (Mobile.isRunning() && activeUrl == null)) {
+                binding.pingResult.visibility = View.VISIBLE
+                binding.pingResult.text = "…"
+                Thread {
+                    val result = Mobile.pingDirect()
+                    runOnUiThread { binding.pingResult.text = result }
+                }.start()
+                return@setOnClickListener
+            }
             val configs = loadConfigs()
             if (configs.isEmpty()) {
                 Toast.makeText(this, R.string.empty_configs, Toast.LENGTH_SHORT).show()

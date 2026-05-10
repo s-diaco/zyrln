@@ -280,6 +280,18 @@ func IsDirectEnabled() bool {
 	return core.GetDirectEnabled()
 }
 
+// PingDirect measures a direct (non-relay) fragmented TCP connection to gstatic.
+// Returns round-trip time as "142 ms" or an error string prefixed with "error: ".
+func PingDirect() string {
+	start := time.Now()
+	conn, ok := core.DialFragment("www.gstatic.com:443")
+	if !ok {
+		return "error: direct connection failed"
+	}
+	conn.Close()
+	return fmt.Sprintf("%d ms", time.Since(start).Milliseconds())
+}
+
 // GenerateCA generates a local CA cert + key at the given paths.
 // Returns an error string, or "" on success.
 func GenerateCA(certPath, keyPath string) string {
