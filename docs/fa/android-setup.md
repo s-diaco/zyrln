@@ -28,15 +28,23 @@ APK را از صفحه [Releases](../../../releases) دانلود کن و روی
 
 **اگر برنامه دسکتاپ نداری**، JSON را دستی بساز:
 
+<div dir="ltr">
+
 ```json
 {"url":"https://script.google.com/macros/s/ID_شما/exec","key":"کلید_امنیتی"}
 ```
 
+</div>
+
 برای چند آدرس Apps Script (پایداری بهتر):
+
+<div dir="ltr">
 
 ```json
 {"url":"https://script.google.com/.../exec1,https://script.google.com/.../exec2","key":"کلید_امنیتی"}
 ```
+
+</div>
 
 ### ۲. نصب گواهینامه CA
 
@@ -75,6 +83,8 @@ APK را از صفحه [Releases](../../../releases) دانلود کن و روی
 
 نیاز به Android Studio با NDK دارد.
 
+<div dir="ltr">
+
 ```bash
 # نصب gomobile (یک بار)
 go install golang.org/x/mobile/cmd/gomobile@latest
@@ -87,6 +97,8 @@ make android         # APK نهایی امضاشده
 # نسخه دیباگ (بدون keystore)
 make android-debug
 ```
+
+</div>
 
 مسیر APK: `android/app/build/outputs/apk/release/`
 

@@ -15,10 +15,14 @@
 
 در `relay/apps-script/Code.gs` مقدار `EXIT_RELAY_URL` را به آدرس Worker تنظیم کن:
 
+<div dir="ltr">
+
 ```js
 const EXIT_RELAY_URL = "https://worker-name.subdomain.workers.dev/relay";
 const EXIT_RELAY_KEY = "";   // خالی بگذار — Worker به این کلید نیاز ندارد
 ```
+
+</div>
 
 سپس Apps Script را دوباره دیپلوی کن: **Deploy → Manage deployments → New version**.
 

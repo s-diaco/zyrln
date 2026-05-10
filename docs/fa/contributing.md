@@ -2,6 +2,8 @@
 
 ## ساختار پروژه
 
+<div dir="ltr">
+
 ```
 zyrln/
 ├── platforms/
@@ -36,6 +38,8 @@ zyrln/
 └── go.mod
 ```
 
+</div>
+
 ## مفاهیم کلیدی
 
 **`relay/core`** قلب پروژه است. هم دسکتاپ و هم اندروید آن را import می‌کنند.
@@ -50,19 +54,29 @@ zyrln/
 
 ## اجرای تست‌ها
 
+<div dir="ltr">
+
 ```bash
 go test ./relay/core/... ./platforms/desktop/...
 ```
 
+</div>
+
 یا همه چیز با هم:
+
+<div dir="ltr">
 
 ```bash
 go test ./...
 ```
 
+</div>
+
 تست‌ها فقط از کتابخانه استاندارد استفاده می‌کنند، بدون framework تست خارجی.
 
 ## ساخت
+
+<div dir="ltr">
 
 ```bash
 make desktop          # ساخت باینری ./zyrln
@@ -70,7 +84,11 @@ make android-debug    # ساخت APK دیباگ (بدون keystore)
 make android          # ساخت APK نهایی امضاشده (نیاز به keystore)
 ```
 
+</div>
+
 راه‌اندازی اول gomobile:
+
+<div dir="ltr">
 
 ```bash
 go install golang.org/x/mobile/cmd/gomobile@latest
@@ -78,9 +96,13 @@ gomobile init
 export ANDROID_HOME=~/Android/Sdk
 ```
 
+</div>
+
 ## افزودن Probe جدید
 
 Probe‌ها در `platforms/desktop/main.go` در تابع `defaultProbes()` تعریف می‌شوند. هر probe یک struct `probe` است:
+
+<div dir="ltr">
 
 ```go
 {
@@ -92,6 +114,8 @@ Probe‌ها در `platforms/desktop/main.go` در تابع `defaultProbes()` ت
     Expectation: "معنای موفقیت تست",
 }
 ```
+
+</div>
 
 ## تغییر پروتکل رله
 

@@ -12,6 +12,8 @@ VPS گره خروجی است — سایت‌های واقعی را از طرف A
 
 روی ماشین محلی:
 
+<div dir="ltr">
+
 ```bash
 # برای amd64 (اکثر VPS‌ها)
 GOOS=linux GOARCH=amd64 go build -o zyrln-relay ./relay/vps/main.go
@@ -20,24 +22,36 @@ GOOS=linux GOARCH=amd64 go build -o zyrln-relay ./relay/vps/main.go
 GOOS=linux GOARCH=arm64 go build -o zyrln-relay ./relay/vps/main.go
 ```
 
+</div>
+
 انتقال به سرور:
+
+<div dir="ltr">
 
 ```bash
 scp zyrln-relay root@IP_VPS_شما:/usr/local/bin/
 ```
 
+</div>
+
 ## اجرا به عنوان سرویس systemd
 
 فایل `/etc/zyrln-relay.env` را بساز:
+
+<div dir="ltr">
 
 ```
 ZYRLN_RELAY_LISTEN=0.0.0.0:8787
 ZYRLN_RELAY_KEY=
 ```
 
+</div>
+
 > `ZYRLN_RELAY_KEY` اختیاری است. اگر مقدار تنظیم کردی، همان مقدار را در `EXIT_RELAY_KEY` در Apps Script هم قرار بده. اگر نیازی نداری، هر دو را خالی بگذار.
 
 فایل `/etc/systemd/system/zyrln-relay.service` را بساز:
+
+<div dir="ltr">
 
 ```ini
 [Unit]
@@ -56,7 +70,11 @@ RestartSec=3
 WantedBy=multi-user.target
 ```
 
+</div>
+
 فعال‌سازی و اجرا:
+
+<div dir="ltr">
 
 ```bash
 systemctl daemon-reload
@@ -64,15 +82,23 @@ systemctl enable --now zyrln-relay
 systemctl status zyrln-relay   # باید "active (running)" نشان بدهد
 ```
 
+</div>
+
 ## باز کردن فایروال
+
+<div dir="ltr">
 
 ```bash
 ufw allow 8787/tcp
 ```
 
+</div>
+
 اگر VPS تو از طریق داشبورد وب فایروال را مدیریت می‌کند، این مرحله را آنجا انجام بده.
 
 ## تست
+
+<div dir="ltr">
 
 ```bash
 curl -s -X POST http://IP_VPS_شما:8787/relay \
@@ -80,6 +106,8 @@ curl -s -X POST http://IP_VPS_شما:8787/relay \
   -d '{"u":"https://www.gstatic.com/generate_204","m":"GET","h":{},"r":true}'
 # باید خروجی {"s":204,...} بگیری
 ```
+
+</div>
 
 ## پارامترهای موجود
 
