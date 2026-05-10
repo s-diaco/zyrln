@@ -77,6 +77,8 @@ class RelayVpnService : VpnService() {
         } catch (e: Exception) {
             Log.e(TAG, "VPN establish failed: ${e.message}")
             Mobile.stop()
+            vpnInterface?.close()
+            vpnInterface = null
             stopSelf()
         }
     }

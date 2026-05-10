@@ -306,7 +306,12 @@ const burstWindow = 10 * time.Millisecond
 
 func (c *Coalescer) run() {
 	for {
-		first := <-c.ch
+		var first *coalescerItem
+		select {
+		case first = <-c.ch:
+		case <-c.stopCh:
+			return
+		}
 		batch := []*coalescerItem{first}
 
 		// If requests are already queued behind the first one, widen the
@@ -324,6 +329,9 @@ func (c *Coalescer) run() {
 				batch = append(batch, item)
 			case <-timer.C:
 				break collect
+			case <-c.stopCh:
+				timer.Stop()
+				return
 			}
 		}
 		timer.Stop()
