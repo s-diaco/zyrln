@@ -2,9 +2,12 @@
 package mobile
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,14 +17,89 @@ import (
 const (
 	defaultFrontDomain = "www.google.com"
 	defaultTimeout     = 45 * time.Second
+	maxLogEntries      = 200
 )
 
+// LogEntry is a single log line returned by PollLogs.
+type LogEntry struct {
+	Level   string // "info" | "error" | "system"
+	Message string
+}
+
+// LogCallback is implemented by the Android service to receive live log lines.
+// gomobile requires an interface rather than a bare func.
+type LogCallback interface {
+	OnLog(level, msg string)
+}
+
 var (
-	mu       sync.Mutex
-	server   *http.Server
-	listener net.Listener
-	lastErr  string
+	mu        sync.Mutex
+	server    *http.Server
+	listener  net.Listener
+	coalescer *core.Coalescer
+	lastErr   string
+
+	logMu      sync.Mutex
+	logBuf     []LogEntry
+	logSeq     int // increments with every new entry
+	logReadSeq int // last seq returned to caller
+	logCb      LogCallback
 )
+
+// SetLogCallback registers a callback called on every new log entry.
+// Pass nil to unregister.
+func SetLogCallback(cb LogCallback) {
+	logMu.Lock()
+	defer logMu.Unlock()
+	logCb = cb
+}
+
+func emitLog(level, msg string) {
+	logMu.Lock()
+	entry := LogEntry{Level: level, Message: msg}
+	logBuf = append(logBuf, entry)
+	if len(logBuf) > maxLogEntries {
+		logBuf = logBuf[1:]
+	}
+	logSeq++
+	cb := logCb
+	logMu.Unlock()
+	if cb != nil {
+		cb.OnLog(level, msg)
+	}
+}
+
+// PollLogs returns all log entries added since the last call.
+// Returns newline-separated "level\tmessage" strings, or "" if none.
+func PollLogs() string {
+	logMu.Lock()
+	defer logMu.Unlock()
+	if logSeq == logReadSeq {
+		return ""
+	}
+	total := len(logBuf)
+	if total == 0 {
+		logReadSeq = logSeq
+		return ""
+	}
+	missed := logSeq - logReadSeq
+	// If the buffer wrapped and we missed more than it holds, return what we have
+	if missed > total {
+		missed = total
+	}
+	start := total - missed
+	var sb strings.Builder
+	for _, e := range logBuf[start:] {
+		if sb.Len() > 0 {
+			sb.WriteByte('\n')
+		}
+		sb.WriteString(e.Level)
+		sb.WriteByte('\t')
+		sb.WriteString(e.Message)
+	}
+	logReadSeq = logSeq
+	return sb.String()
+}
 
 // Start starts the HTTPS MITM relay proxy on listenAddr (e.g. "127.0.0.1:8085").
 // appScriptURL may be a single URL or a comma-separated list of URLs tried in order.
@@ -38,26 +116,86 @@ func Start(appScriptURL, authKey, listenAddr, caCertPath, caKeyPath string) stri
 	ca, err := core.LoadCA(caCertPath, caKeyPath)
 	if err != nil {
 		lastErr = fmt.Sprintf("load CA: %s", err)
+		emitLog("error", lastErr)
 		return lastErr
 	}
+
+	core.SetLogFunc(func(level, msg string) { emitLog(level, msg) })
 
 	client := core.NewHTTPClient(defaultTimeout)
 	urls := parseURLList(appScriptURL)
 
-	srv, ln, err := core.StartProxy(listenAddr, urls, defaultFrontDomain, authKey, ca, client, defaultTimeout)
+	srv, coal, err := core.StartProxyWithCoalescer(listenAddr, urls, defaultFrontDomain, authKey, ca, client, defaultTimeout)
 	if err != nil {
 		lastErr = err.Error()
+		emitLog("error", lastErr)
 		return lastErr
 	}
 
+	ln, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		_ = srv.Close()
+		lastErr = err.Error()
+		emitLog("error", lastErr)
+		return lastErr
+	}
+	go func() { _ = srv.Serve(ln) }()
+
+	// Redirect server error log to our emitter
+	srv.ErrorLog = log.New(&logWriter{}, "", 0)
+
 	server = srv
 	listener = ln
+	coalescer = coal
 	lastErr = ""
+	emitLog("system", fmt.Sprintf("Proxy started on %s", listenAddr))
 	return ""
+}
+
+type logWriter struct{}
+
+func (lw *logWriter) Write(p []byte) (int, error) {
+	msg := strings.TrimSpace(string(p))
+	if msg != "" {
+		emitLog("error", msg)
+	}
+	return len(p), nil
 }
 
 func parseURLList(raw string) []string {
 	return core.ParseURLList(raw)
+}
+
+// Ping sends a HEAD request through the relay and returns the round-trip time in
+// milliseconds as a string (e.g. "142 ms"), or an error message prefixed with "error: ".
+// When the proxy is running the existing coalescer (and its warm connection pool) is reused.
+func Ping(appScriptURL, authKey string) string {
+	mu.Lock()
+	coal := coalescer
+	mu.Unlock()
+
+	start := time.Now()
+	if coal != nil {
+		_, err := coal.Submit("HEAD", "https://www.gstatic.com/generate_204", map[string]string{}, nil)
+		if err != nil {
+			return "error: " + err.Error()
+		}
+		return fmt.Sprintf("%d ms", time.Since(start).Milliseconds())
+	}
+
+	// Proxy not running — use a fresh client
+	urls := parseURLList(appScriptURL)
+	if len(urls) == 0 {
+		return "error: no relay URL configured"
+	}
+	client := core.NewHTTPClient(defaultTimeout)
+	_, err := core.RelayRequestMulti(client, urls, defaultFrontDomain, authKey,
+		"HEAD", "https://www.gstatic.com/generate_204",
+		map[string]string{}, nil, defaultTimeout)
+	if err != nil {
+		return "error: " + err.Error()
+	}
+	return fmt.Sprintf("%d ms", time.Since(start).Milliseconds())
 }
 
 // Stop shuts down the relay proxy.
@@ -69,9 +207,13 @@ func Stop() {
 		listener = nil
 	}
 	if server != nil {
-		_ = server.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = server.Shutdown(ctx)
 		server = nil
 	}
+	coalescer = nil
+	emitLog("system", "Proxy stopped")
 }
 
 // IsRunning returns true if the proxy is currently running.

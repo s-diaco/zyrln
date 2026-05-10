@@ -3,10 +3,12 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -408,6 +410,79 @@ func TestGUIConfigRoundTrip(t *testing.T) {
 	}
 }
 
+func TestGUIProfilesSaveActivateDelete(t *testing.T) {
+	resetGUIStateForTest(t)
+	dir := t.TempDir()
+	writeConfigForTest(t, dir, "listen = 127.0.0.1:9090\nsocks-listen = 127.0.0.1:1090\n")
+	handler := newTestGUIHandler(t, dir, nil)
+
+	body := bytes.NewBufferString(`{"name":"Work","config":{"fronted-appscript-url":"https://script.google.com/macros/s/ABC/exec","auth-key":"secret","listen":"127.0.0.1:8085","socks-listen":"127.0.0.1:1080"}}`)
+	resp := httptest.NewRecorder()
+	handler.ServeHTTP(resp, httptest.NewRequest(http.MethodPost, "/api/profiles", body))
+	if resp.Code != http.StatusOK {
+		t.Fatalf("POST /api/profiles status = %d, body=%s", resp.Code, resp.Body.String())
+	}
+
+	var saved desktopProfile
+	if err := json.Unmarshal(resp.Body.Bytes(), &saved); err != nil {
+		t.Fatalf("decode saved profile: %v", err)
+	}
+	if saved.ID == "" || saved.Name != "Work" {
+		t.Fatalf("unexpected saved profile: %#v", saved)
+	}
+	if saved.Config["listen"] != "" || saved.Config["socks-listen"] != "" {
+		t.Fatalf("profile saved global listen settings: %#v", saved.Config)
+	}
+
+	var profiles []desktopProfile
+	getJSON(t, handler, "/api/profiles", &profiles)
+	if len(profiles) != 1 || profiles[0].ID != saved.ID {
+		t.Fatalf("profiles = %#v, want saved profile", profiles)
+	}
+
+	body = bytes.NewBufferString(fmt.Sprintf(`{"id":%q}`, saved.ID))
+	resp = httptest.NewRecorder()
+	guiMu.Lock()
+	guiProxyServer = &http.Server{}
+	guiMu.Unlock()
+	handler.ServeHTTP(resp, httptest.NewRequest(http.MethodPost, "/api/profiles/activate", body))
+	if resp.Code != http.StatusConflict {
+		t.Fatalf("activate while running status = %d, want %d", resp.Code, http.StatusConflict)
+	}
+	guiMu.Lock()
+	guiProxyServer = nil
+	guiMu.Unlock()
+
+	body = bytes.NewBufferString(fmt.Sprintf(`{"id":%q}`, saved.ID))
+	resp = httptest.NewRecorder()
+	handler.ServeHTTP(resp, httptest.NewRequest(http.MethodPost, "/api/profiles/activate", body))
+	if resp.Code != http.StatusOK {
+		t.Fatalf("POST /api/profiles/activate status = %d, body=%s", resp.Code, resp.Body.String())
+	}
+
+	var cfg map[string]string
+	getJSON(t, handler, "/api/config", &cfg)
+	if cfg["fronted-appscript-url"] != "https://script.google.com/macros/s/ABC/exec" {
+		t.Fatalf("activated url = %q", cfg["fronted-appscript-url"])
+	}
+	if cfg["listen"] != "127.0.0.1:9090" {
+		t.Fatalf("activated listen = %q", cfg["listen"])
+	}
+	if cfg["socks-listen"] != "127.0.0.1:1090" {
+		t.Fatalf("activated socks-listen = %q", cfg["socks-listen"])
+	}
+
+	resp = httptest.NewRecorder()
+	handler.ServeHTTP(resp, httptest.NewRequest(http.MethodDelete, "/api/profiles?id="+saved.ID, nil))
+	if resp.Code != http.StatusOK {
+		t.Fatalf("DELETE /api/profiles status = %d, body=%s", resp.Code, resp.Body.String())
+	}
+	getJSON(t, handler, "/api/profiles", &profiles)
+	if len(profiles) != 0 {
+		t.Fatalf("profiles after delete = %#v, want empty", profiles)
+	}
+}
+
 func TestGUIExportReadsConfig(t *testing.T) {
 	resetGUIStateForTest(t)
 	dir := t.TempDir()
@@ -547,6 +622,293 @@ func TestGUIStartStopWithInjectedStarter(t *testing.T) {
 	if status["running"] != false {
 		t.Fatalf("running after stop = %v, want false", status["running"])
 	}
+}
+
+func TestGUILogsEmpty(t *testing.T) {
+	resetGUIStateForTest(t)
+	resetGUILogForTest(t)
+	dir := t.TempDir()
+	handler := newTestGUIHandler(t, dir, nil)
+
+	resp := httptest.NewRecorder()
+	handler.ServeHTTP(resp, httptest.NewRequest(http.MethodGet, "/api/logs?seq=0", nil))
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d", resp.Code)
+	}
+	if body := resp.Body.String(); body != "" {
+		t.Errorf("expected empty body, got %q", body)
+	}
+	if seq := resp.Header().Get("X-Log-Seq"); seq != "0" {
+		t.Errorf("X-Log-Seq = %q, want 0", seq)
+	}
+}
+
+func TestGUILogsReturnNewEntries(t *testing.T) {
+	resetGUIStateForTest(t)
+	resetGUILogForTest(t)
+	dir := t.TempDir()
+	handler := newTestGUIHandler(t, dir, nil)
+
+	guiEmitLog("info", "hello world")
+	guiEmitLog("error", "something broke")
+
+	resp := httptest.NewRecorder()
+	handler.ServeHTTP(resp, httptest.NewRequest(http.MethodGet, "/api/logs?seq=0", nil))
+	body := resp.Body.String()
+	if !strings.Contains(body, "info\thello world") {
+		t.Errorf("missing info line, got: %q", body)
+	}
+	if !strings.Contains(body, "error\tsomething broke") {
+		t.Errorf("missing error line, got: %q", body)
+	}
+	seq := resp.Header().Get("X-Log-Seq")
+	if seq != "2" {
+		t.Errorf("X-Log-Seq = %q, want 2", seq)
+	}
+}
+
+func TestGUILogsSeqCursorReturnsOnlyNew(t *testing.T) {
+	resetGUIStateForTest(t)
+	resetGUILogForTest(t)
+	dir := t.TempDir()
+	handler := newTestGUIHandler(t, dir, nil)
+
+	guiEmitLog("info", "first")
+	guiEmitLog("info", "second")
+
+	// First poll: get both
+	resp := httptest.NewRecorder()
+	handler.ServeHTTP(resp, httptest.NewRequest(http.MethodGet, "/api/logs?seq=0", nil))
+	seq := resp.Header().Get("X-Log-Seq") // should be "2"
+
+	// Add another entry
+	guiEmitLog("system", "third")
+
+	// Second poll: only "third" should appear
+	resp = httptest.NewRecorder()
+	handler.ServeHTTP(resp, httptest.NewRequest(http.MethodGet, "/api/logs?seq="+seq, nil))
+	body := resp.Body.String()
+	if strings.Contains(body, "first") || strings.Contains(body, "second") {
+		t.Errorf("cursor should skip already-seen entries, got: %q", body)
+	}
+	if !strings.Contains(body, "system\tthird") {
+		t.Errorf("missing new entry, got: %q", body)
+	}
+}
+
+func TestGUILogsNegativeSeqClamped(t *testing.T) {
+	resetGUIStateForTest(t)
+	resetGUILogForTest(t)
+	dir := t.TempDir()
+	handler := newTestGUIHandler(t, dir, nil)
+
+	guiEmitLog("info", "entry")
+
+	// negative seq should be treated as 0 — all entries returned
+	resp := httptest.NewRecorder()
+	handler.ServeHTTP(resp, httptest.NewRequest(http.MethodGet, "/api/logs?seq=-99", nil))
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d", resp.Code)
+	}
+	body := resp.Body.String()
+	if !strings.Contains(body, "info\tentry") {
+		t.Errorf("expected entry with negative seq clamped, got: %q", body)
+	}
+}
+
+func TestGUILogsResetOnStart(t *testing.T) {
+	resetGUIStateForTest(t)
+	resetGUILogForTest(t)
+	dir := t.TempDir()
+	writeConfigForTest(t, dir, "fronted-appscript-url = https://script.google.com/macros/s/ABC/exec\nauth-key = secret\n")
+
+	starter := func(string, string, []string, string, *core.CertAuthority) (*http.Server, net.Listener, *core.SOCKSServer, net.Listener, error) {
+		return &http.Server{}, noopListener{}, &core.SOCKSServer{}, noopListener{}, nil
+	}
+	handler := newTestGUIHandler(t, dir, starter)
+
+	// emit logs before start (simulates a previous run)
+	guiEmitLog("info", "old log")
+	oldSeq := guiLogSeq
+
+	// init-ca then start
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/api/init-ca", nil))
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/api/start", nil))
+
+	guiLogMu.Lock()
+	newSeq := guiLogSeq
+	bufLen := len(guiLogBuf)
+	guiLogMu.Unlock()
+
+	if newSeq != 0 {
+		t.Errorf("guiLogSeq after start = %d, want 0 (reset)", newSeq)
+	}
+	if bufLen != 0 {
+		t.Errorf("guiLogBuf len after start = %d, want 0 (reset)", bufLen)
+	}
+	_ = oldSeq
+}
+
+func TestIsRedirect(t *testing.T) {
+	redirectCodes := []int{301, 302, 303, 307, 308}
+	for _, code := range redirectCodes {
+		if !isRedirect(code) {
+			t.Errorf("isRedirect(%d) = false, want true", code)
+		}
+	}
+	nonRedirect := []int{200, 204, 400, 404, 500}
+	for _, code := range nonRedirect {
+		if isRedirect(code) {
+			t.Errorf("isRedirect(%d) = true, want false", code)
+		}
+	}
+}
+
+func TestCompactError_URLError(t *testing.T) {
+	inner := fmt.Errorf("connection refused")
+	wrapped := &url.Error{Op: "Get", URL: "http://example.com", Err: inner}
+	got := compactError(wrapped)
+	if got != "connection refused" {
+		t.Errorf("compactError url.Error = %q, want %q", got, "connection refused")
+	}
+}
+
+func TestCompactError_PlainError(t *testing.T) {
+	err := fmt.Errorf("something\nwent wrong")
+	got := compactError(err)
+	if strings.Contains(got, "\n") {
+		t.Errorf("compactError should strip newlines, got: %q", got)
+	}
+	if !strings.Contains(got, "something") {
+		t.Errorf("compactError should preserve message, got: %q", got)
+	}
+}
+
+func TestCompactError_Nil(t *testing.T) {
+	if got := compactError(nil); got != "" {
+		t.Errorf("compactError(nil) = %q, want empty", got)
+	}
+}
+
+func TestProfileDisplayName_ExplicitName(t *testing.T) {
+	got := profileDisplayName("My Profile", map[string]string{})
+	if got != "My Profile" {
+		t.Errorf("got %q, want %q", got, "My Profile")
+	}
+}
+
+func TestProfileDisplayName_FromURL(t *testing.T) {
+	cfg := map[string]string{"fronted-appscript-url": "https://script.google.com/macros/s/ABC/exec"}
+	got := profileDisplayName("", cfg)
+	if got != "script.google.com" {
+		t.Errorf("got %q, want script.google.com", got)
+	}
+}
+
+func TestProfileDisplayName_FallbackNoURL(t *testing.T) {
+	got := profileDisplayName("  ", map[string]string{})
+	if got != "Profile" {
+		t.Errorf("got %q, want Profile", got)
+	}
+}
+
+func TestFrontedRedirectProbe_AbsoluteLocation(t *testing.T) {
+	orig := probe{
+		ID: "p1", Name: "Test", Category: "cat",
+		URL: "https://www.google.com/path", FrontDomain: "www.google.com",
+	}
+	got, err := frontedRedirectProbe(orig, "https://accounts.google.com/signin")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Host != "accounts.google.com" {
+		t.Errorf("Host = %q, want accounts.google.com", got.Host)
+	}
+	if !strings.Contains(got.URL, "www.google.com") {
+		t.Errorf("URL should use front domain, got %q", got.URL)
+	}
+	if got.FrontDomain != "www.google.com" {
+		t.Errorf("FrontDomain = %q, want www.google.com", got.FrontDomain)
+	}
+}
+
+func TestFrontedRedirectProbe_RelativeLocation(t *testing.T) {
+	orig := probe{
+		ID: "p1", Name: "Test", Category: "cat",
+		URL: "https://www.google.com/path", FrontDomain: "www.google.com",
+	}
+	got, err := frontedRedirectProbe(orig, "/newpath")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(got.URL, "/newpath") {
+		t.Errorf("URL should contain resolved path, got %q", got.URL)
+	}
+}
+
+func TestWriteJSONReport(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "sub", "report.json")
+	rep := report{
+		GeneratedAt: "2024-01-01T00:00:00Z",
+		Summary:     summary{Total: 1, Reachable: 1, Categories: map[string]int{"test": 1}},
+	}
+	if err := writeJSONReport(path, rep); err != nil {
+		t.Fatalf("writeJSONReport: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read report: %v", err)
+	}
+	var got report
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got.Summary.Total != 1 {
+		t.Errorf("Total = %d, want 1", got.Summary.Total)
+	}
+}
+
+func TestWriteBody(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "nested", "body.bin")
+	data := []byte("hello world")
+	if err := writeBody(path, data); err != nil {
+		t.Fatalf("writeBody: %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if string(got) != "hello world" {
+		t.Errorf("got %q, want %q", got, data)
+	}
+}
+
+func TestGuiEmitLog_RingBuffer(t *testing.T) {
+	resetGUILogForTest(t)
+	// Fill past the cap
+	for i := 0; i < maxGUILogEntries+10; i++ {
+		guiEmitLog("info", fmt.Sprintf("msg%d", i))
+	}
+	guiLogMu.Lock()
+	length := len(guiLogBuf)
+	seq := guiLogSeq
+	guiLogMu.Unlock()
+	if length != maxGUILogEntries {
+		t.Errorf("buf len = %d, want %d", length, maxGUILogEntries)
+	}
+	if seq != maxGUILogEntries+10 {
+		t.Errorf("seq = %d, want %d", seq, maxGUILogEntries+10)
+	}
+}
+
+func resetGUILogForTest(t *testing.T) {
+	t.Helper()
+	guiLogMu.Lock()
+	guiLogBuf = nil
+	guiLogSeq = 0
+	guiLogMu.Unlock()
 }
 
 func newTestGUIHandler(t *testing.T, dir string, starter guiProxyStarter) http.Handler {

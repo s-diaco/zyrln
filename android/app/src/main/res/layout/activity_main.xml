@@ -4,15 +4,18 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="24dp"
     android:background="@color/background">
 
+    <!-- Header -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="4dp">
+        android:paddingStart="20dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp">
 
         <LinearLayout
             android:layout_width="0dp"
@@ -25,8 +28,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/app_name"
-                android:textSize="28sp"
+                android:textSize="20sp"
                 android:textStyle="bold"
+                android:letterSpacing="0.08"
                 android:textColor="@color/title" />
 
             <TextView
@@ -34,12 +38,17 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textDirection="ltr"
-                android:textColor="@color/subtitle" />
+                android:textColor="@color/text_dim"
+                android:background="@drawable/bg_version_tag"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp" />
         </LinearLayout>
 
-        <ImageButton
+        <androidx.appcompat.widget.AppCompatImageButton
             android:id="@+id/btnTheme"
             android:layout_width="40dp"
             android:layout_height="40dp"
@@ -47,125 +56,283 @@
             android:tint="@color/icon"
             android:scaleType="center"
             android:padding="8dp"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true"
-            android:layout_marginEnd="4dp" />
+            android:background="@drawable/bg_icon_btn"
+            android:layout_marginEnd="6dp" />
 
         <TextView
             android:id="@+id/btnLanguage"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:text="FA"
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:textStyle="bold"
             android:textColor="@color/icon"
-            android:padding="8dp"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true" />
+            android:gravity="center"
+            android:background="@drawable/bg_icon_btn" />
     </LinearLayout>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/app_tagline"
-        android:textSize="13sp"
-        android:textAlignment="viewStart"
-        android:textColor="@color/subtitle"
-        android:layout_marginBottom="24dp" />
-
-    <!-- Status card -->
-    <androidx.cardview.widget.CardView
+    <!-- Divider -->
+    <View
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="24dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="0dp"
-        app:cardBackgroundColor="@color/surface">
+        android:layout_height="1dp"
+        android:background="@color/border" />
 
-        <LinearLayout
+    <!-- Content -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp">
+
+        <!-- Status + Connect card -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/statusCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:padding="20dp"
-            android:gravity="center_vertical">
+            android:layout_marginBottom="12dp"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="@color/card_bg"
+            app:strokeColor="@color/border"
+            app:strokeWidth="1dp">
 
-            <View
-                android:id="@+id/statusDot"
-                android:layout_width="12dp"
-                android:layout_height="12dp"
-                android:background="@drawable/status_dot"
-                android:layout_marginEnd="16dp" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="16dp"
+                android:gravity="center_vertical">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/statusText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/status_stopped"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/title" />
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginTop="4dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/label_uptime"
+                            android:textSize="12sp"
+                            android:textColor="@color/text_dim" />
+
+                        <TextView
+                            android:id="@+id/uptimeValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:text="00:00:00"
+                            android:textSize="12sp"
+                            android:textDirection="ltr"
+                            android:fontFamily="monospace"
+                            android:textColor="@color/subtitle" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/pingResult"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:textSize="11sp"
+                        android:textDirection="ltr"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/primary"
+                        android:visibility="gone" />
+                </LinearLayout>
+
+                <androidx.appcompat.widget.AppCompatImageButton
+                    android:id="@+id/btnPing"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:src="@drawable/ic_ping"
+                    android:tint="@color/text_dim"
+                    android:scaleType="center"
+                    android:padding="8dp"
+                    android:background="@drawable/bg_icon_btn"
+                    android:layout_marginEnd="8dp" />
+
+                <androidx.appcompat.widget.AppCompatImageButton
+                    android:id="@+id/btnConnect"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:src="@drawable/ic_connect"
+                    android:scaleType="center"
+                    android:padding="8dp"
+                    android:background="@drawable/bg_icon_btn" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Middle zone: config list OR empty state OR live log — weight fills remaining space -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginBottom="12dp">
+
+            <!-- Config list (visible when configs exist and not running) -->
+            <ScrollView
+                android:id="@+id/configScroll"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:id="@+id/configList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </ScrollView>
+
+            <!-- Empty state -->
+            <LinearLayout
+                android:id="@+id/emptyState"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:visibility="visible">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/empty_configs"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_dim"
+                    android:gravity="center" />
+            </LinearLayout>
+
+            <!-- Live log (visible when running) -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/logCard"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone"
+                app:cardCornerRadius="14dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@color/card_bg"
+                app:strokeColor="@color/border"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical">
+
+                    <!-- Log toolbar: label + share button -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="6dp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="4dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/log_title"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/text_dim"
+                            android:letterSpacing="0.06" />
+
+                        <androidx.appcompat.widget.AppCompatImageButton
+                            android:id="@+id/btnShareLog"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:src="@drawable/ic_share"
+                            android:tint="@color/text_dim"
+                            android:scaleType="center"
+                            android:padding="8dp"
+                            android:background="@drawable/bg_icon_btn" />
+                    </LinearLayout>
+
+                    <!-- Divider -->
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/border" />
+
+                    <ScrollView
+                        android:id="@+id/logScroll"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:padding="12dp"
+                        android:fadeScrollbars="false"
+                        android:scrollbarStyle="insideOverlay"
+                        android:layoutDirection="ltr">
+
+                        <TextView
+                            android:id="@+id/logOutput"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:textSize="11sp"
+                            android:textColor="@color/text_dim"
+                            android:lineSpacingMultiplier="1.4"
+                            android:layoutDirection="ltr"
+                            android:textDirection="ltr"
+                            android:textAlignment="textStart" />
+                    </ScrollView>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+        </FrameLayout>
+
+        <!-- Bottom actions — hidden while connected, log fills the space instead -->
+        <LinearLayout
+            android:id="@+id/bottomActions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnImportConfig"
+                style="@style/Btn.Connect"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="@string/btn_import_config"
+                android:layout_marginBottom="10dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnInstallCA"
+                style="@style/Btn.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="@string/btn_install_ca"
+                android:layout_marginBottom="8dp" />
 
             <TextView
-                android:id="@+id/statusText"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/status_stopped"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@color/title" />
+                android:text="@string/ca_install_hint"
+                android:textSize="12sp"
+                android:textColor="@color/text_dim"
+                android:gravity="center" />
         </LinearLayout>
-    </androidx.cardview.widget.CardView>
 
-    <!-- Config list -->
-    <ScrollView
-        android:id="@+id/configScroll"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginBottom="16dp"
-        android:visibility="gone">
-
-        <LinearLayout
-            android:id="@+id/configList"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical" />
-    </ScrollView>
-
-    <!-- Empty state -->
-    <TextView
-        android:id="@+id/emptyState"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginBottom="16dp"
-        android:gravity="center"
-        android:text="@string/empty_configs"
-        android:textSize="15sp"
-        android:textColor="@color/subtitle"
-        android:visibility="visible" />
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnImportConfig"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:text="@string/btn_import_config"
-        android:textSize="15sp"
-        android:textAllCaps="false"
-        app:cornerRadius="12dp"
-        android:layout_marginBottom="12dp" />
-
-    <!-- Install CA -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnInstallCA"
-        style="@style/Widget.MaterialComponents.Button.TextButton"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:text="@string/btn_install_ca"
-        android:textSize="14sp"
-        android:textAllCaps="false"
-        android:layout_marginBottom="8dp" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/ca_install_hint"
-        android:textSize="12sp"
-        android:textColor="@color/subtitle"
-        android:gravity="center" />
-
+    </LinearLayout>
 </LinearLayout>

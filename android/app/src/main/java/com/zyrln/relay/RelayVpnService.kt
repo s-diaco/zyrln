@@ -57,7 +57,6 @@ class RelayVpnService : VpnService() {
             return
         }
 
-        // Start the Go relay proxy.
         val err = Mobile.start(url, key, "127.0.0.1:$PROXY_PORT", certPath, keyPath)
         if (err.isNotEmpty()) {
             Log.e(TAG, "relay start failed: $err")
@@ -66,7 +65,6 @@ class RelayVpnService : VpnService() {
         }
         Log.i(TAG, "relay proxy started on 127.0.0.1:$PROXY_PORT")
 
-        // Establish a minimal VPN connection that sets our proxy for all apps.
         val builder = Builder()
             .setSession("Zyrln")
             .addAddress("10.99.0.2", 32)

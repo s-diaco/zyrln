@@ -579,6 +579,50 @@ func TestRelayRequestMulti_SplitsTimeout(t *testing.T) {
 	}
 }
 
+func TestFmtBytes(t *testing.T) {
+	cases := []struct {
+		in   int
+		want string
+	}{
+		{0, "0 B"},
+		{1023, "1023 B"},
+		{1024, "1.0 KB"},
+		{1536, "1.5 KB"},
+		{1024 * 1024, "1.0 MB"},
+		{1024*1024 + 512*1024, "1.5 MB"},
+	}
+	for _, c := range cases {
+		got := fmtBytes(c.in)
+		if got != c.want {
+			t.Errorf("fmtBytes(%d) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestLogf_NilLogFunc(t *testing.T) {
+	SetLogFunc(nil)
+	defer SetLogFunc(nil)
+	// must not panic
+	logf("info", "hello %s", "world")
+}
+
+func TestLogf_RoutesToLogFunc(t *testing.T) {
+	defer SetLogFunc(nil)
+
+	var gotLevel, gotMsg string
+	SetLogFunc(func(level, msg string) {
+		gotLevel = level
+		gotMsg = msg
+	})
+	logf("error", "test %d", 42)
+	if gotLevel != "error" {
+		t.Errorf("level = %q, want error", gotLevel)
+	}
+	if gotMsg != "test 42" {
+		t.Errorf("msg = %q, want %q", gotMsg, "test 42")
+	}
+}
+
 func TestWriteHTTPError(t *testing.T) {
 	client, server := net.Pipe()
 	go func() {

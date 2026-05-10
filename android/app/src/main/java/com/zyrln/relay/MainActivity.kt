@@ -1,5 +1,11 @@
 package com.zyrln.relay
 
+import android.animation.AnimatorInflater
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import android.animation.ArgbEvaluator
+import android.animation.ValueAnimator
 import android.app.AlertDialog
 import android.content.BroadcastReceiver
 import android.content.ClipboardManager
@@ -7,18 +13,18 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.content.res.ColorStateList
 import android.graphics.Typeface
 import android.net.VpnService
 import android.os.Bundle
-import android.os.Environment
 import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
 import android.view.View
+import android.view.animation.Animation
+import android.view.animation.AnimationUtils
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.widget.EditText
-import android.text.InputType
 import android.widget.Toast
 import org.json.JSONArray
 import org.json.JSONException
@@ -33,15 +39,21 @@ import com.zyrln.relay.databinding.ActivityMainBinding
 import mobile.Mobile
 import android.net.Uri
 import java.io.File
-import java.io.FileOutputStream
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
+    companion object {
+        // Survives activity recreation (theme/language change)
+        private val logCache = android.text.SpannableStringBuilder()
+    }
+
     private lateinit var binding: ActivityMainBinding
     private lateinit var prefs: SharedPreferences
-    private var activeUrl: String? = null
-    private var activeKey: String? = null
+    @Volatile private var activeUrl: String? = null
+    @Volatile private var activeKey: String? = null
+    private var selectedUrl: String? = null
+    private var selectedKey: String? = null
 
     private val vpnPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -64,18 +76,40 @@ class MainActivity : AppCompatActivity() {
 
     private val startedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
+            startUptimeTicker()
             updateUI(running = true)
         }
     }
 
+    private val logPollHandler = Handler(Looper.getMainLooper())
+    private val logPollTick = object : Runnable {
+        override fun run() {
+            val raw = Mobile.pollLogs()
+            if (raw.isNotEmpty()) {
+                raw.split('\n').forEach { line ->
+                    val tab = line.indexOf('\t')
+                    if (tab >= 0) appendLog(line.substring(0, tab), line.substring(tab + 1))
+                }
+            }
+            logPollHandler.postDelayed(this, 500)
+        }
+    }
+
+    private fun startLogPolling() {
+        logPollHandler.removeCallbacks(logPollTick)
+        logPollHandler.post(logPollTick)
+    }
+
+    private fun stopLogPolling() {
+        logPollHandler.removeCallbacks(logPollTick)
+    }
+
     private val stopReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (activeUrl == null) {
-                // genuine stop — no config switch in progress
-                activeKey = null
-                updateUI(running = false)
-            }
-            // activeUrl != null means connectConfig() already set the next config; don't clear it
+            activeUrl = null
+            activeKey = null
+            stopUptimeTicker()
+            updateUI(running = false)
         }
     }
 
@@ -83,6 +117,7 @@ class MainActivity : AppCompatActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             activeUrl = null
             activeKey = null
+            stopUptimeTicker()
             updateUI(running = false)
             val message = intent?.getStringExtra(RelayVpnService.EXTRA_ERROR)
                 ?: getString(R.string.error_relay_start_generic)
@@ -102,6 +137,41 @@ class MainActivity : AppCompatActivity() {
         binding.btnInstallCA.setOnClickListener { installCACert() }
         binding.btnLanguage.setOnClickListener { toggleLanguage() }
         binding.btnTheme.setOnClickListener { toggleTheme() }
+        binding.btnConnect.setOnClickListener { onConnectClicked() }
+        binding.btnShareLog.setOnClickListener { shareLog() }
+        binding.btnPing.setOnClickListener {
+            val configs = loadConfigs()
+            if (configs.isEmpty()) {
+                Toast.makeText(this, R.string.empty_configs, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            // Use the selected row, or active row, or first config
+            val (pingUrl, pingKey) = when {
+                selectedUrl != null -> Pair(selectedUrl!!, selectedKey ?: "")
+                activeUrl != null -> Pair(activeUrl!!, activeKey ?: "")
+                else -> configs[0]
+            }
+            // Auto-select if nothing selected yet
+            if (selectedUrl == null && activeUrl == null) {
+                selectedUrl = configs[0].first
+                selectedKey = configs[0].second
+                refreshList()
+            }
+            binding.pingResult.visibility = View.VISIBLE
+            binding.pingResult.text = "…"
+            Thread {
+                val result = Mobile.ping(pingUrl, pingKey)
+                runOnUiThread { binding.pingResult.text = result }
+            }.start()
+        }
+
+        // Press scale animation on primary buttons
+        val pressAnim = AnimatorInflater.loadStateListAnimator(this, R.animator.btn_press)
+        binding.btnConnect.stateListAnimator = pressAnim
+        binding.btnImportConfig.stateListAnimator =
+            AnimatorInflater.loadStateListAnimator(this, R.animator.btn_press)
+        binding.btnInstallCA.stateListAnimator =
+            AnimatorInflater.loadStateListAnimator(this, R.animator.btn_press)
 
         if (Mobile.isRunning()) {
             activeUrl = prefs.getString("url", null)
@@ -111,7 +181,25 @@ class MainActivity : AppCompatActivity() {
         updateLanguageButton()
         updateThemeButton()
 
-        // Apply saved theme
+        // Restore log cache after recreation (theme/language change)
+        if (logCache.isNotEmpty() && Mobile.isRunning()) {
+            binding.logOutput.text = logCache
+            binding.logScroll.post { binding.logScroll.fullScroll(View.FOCUS_DOWN) }
+        }
+
+        // Entrance animation — only animate views that are actually visible
+        val running = Mobile.isRunning()
+        val panelViews = if (running)
+            listOf<View?>(binding.statusCard, binding.logCard)
+        else
+            listOf<View?>(binding.statusCard, binding.bottomActions)
+        panelViews.forEachIndexed { i, v ->
+            v ?: return@forEachIndexed
+            val anim = AnimationUtils.loadAnimation(this, R.anim.card_enter)
+            anim.startOffset = i * 60L
+            v.startAnimation(anim)
+        }
+
         val savedTheme = prefs.getInt("theme_mode", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         if (AppCompatDelegate.getDefaultNightMode() != savedTheme) {
             AppCompatDelegate.setDefaultNightMode(savedTheme)
@@ -123,10 +211,12 @@ class MainActivity : AppCompatActivity() {
         registerReceiver(startedReceiver, IntentFilter("com.zyrln.relay.STARTED"), RECEIVER_NOT_EXPORTED)
         registerReceiver(stopReceiver, IntentFilter("com.zyrln.relay.STOPPED"), RECEIVER_NOT_EXPORTED)
         registerReceiver(errorReceiver, IntentFilter(RelayVpnService.ACTION_ERROR), RECEIVER_NOT_EXPORTED)
+        startLogPolling()
         if (Mobile.isRunning() && activeUrl == null) {
             activeUrl = prefs.getString("url", null)
             activeKey = prefs.getString("key", null)
         }
+        if (Mobile.isRunning()) resumeUptimeTicker() else stopUptimeTicker()
         updateUI(running = Mobile.isRunning())
     }
 
@@ -135,15 +225,103 @@ class MainActivity : AppCompatActivity() {
         unregisterReceiver(startedReceiver)
         unregisterReceiver(stopReceiver)
         unregisterReceiver(errorReceiver)
+        stopLogPolling()
+        uptimeHandler.removeCallbacks(uptimeTick)
+    }
+
+    override fun onDestroy() {
+        colorAnimator?.cancel()
+        stopLogPolling()
+        uptimeHandler.removeCallbacks(uptimeTick)
+        super.onDestroy()
+    }
+
+    private fun onConnectClicked() {
+        val running = Mobile.isRunning()
+        if (running) {
+            playMotion(binding.btnConnect, R.anim.motion_soft)
+            stopVpn()
+            return
+        }
+        val configs = loadConfigs()
+        when {
+            configs.isEmpty() -> Toast.makeText(this, R.string.empty_configs, Toast.LENGTH_SHORT).show()
+            selectedUrl != null -> connectConfig(selectedUrl!!, selectedKey ?: "")
+            else -> { /* button should be disabled — no-op */ }
+        }
+    }
+
+    private var connectBtnCurrentColor: Int = 0
+    private var colorAnimator: ValueAnimator? = null
+    private var uptimeStart: Long = 0L
+    private val uptimeHandler = Handler(Looper.getMainLooper())
+    private val uptimeTick = object : Runnable {
+        override fun run() {
+            val elapsed = SystemClock.elapsedRealtime() - uptimeStart
+            val h = elapsed / 3_600_000
+            val m = (elapsed % 3_600_000) / 60_000
+            val s = (elapsed % 60_000) / 1_000
+            binding.uptimeValue.text = "%02d:%02d:%02d".format(h, m, s)
+            uptimeHandler.postDelayed(this, 1_000)
+        }
+    }
+
+    private fun startUptimeTicker() {
+        uptimeStart = SystemClock.elapsedRealtime()
+        prefs.edit().putLong("uptime_start_wall", System.currentTimeMillis()).apply()
+        uptimeHandler.removeCallbacks(uptimeTick)
+        uptimeHandler.post(uptimeTick)
+    }
+
+    private fun resumeUptimeTicker() {
+        val wallStart = prefs.getLong("uptime_start_wall", 0L)
+        if (wallStart == 0L) {
+            startUptimeTicker()
+            return
+        }
+        val elapsedSinceStart = System.currentTimeMillis() - wallStart
+        uptimeStart = SystemClock.elapsedRealtime() - elapsedSinceStart
+        uptimeHandler.removeCallbacks(uptimeTick)
+        uptimeHandler.post(uptimeTick)
+    }
+
+    private fun stopUptimeTicker() {
+        uptimeHandler.removeCallbacks(uptimeTick)
+        prefs.edit().remove("uptime_start_wall").apply()
+        binding.uptimeValue.text = "00:00:00"
     }
 
     private fun updateUI(running: Boolean) {
         runOnUiThread {
-            binding.statusDot.backgroundTintList = ContextCompat.getColorStateList(this,
-                if (running) R.color.dot_active else R.color.dot_inactive)
             binding.statusText.setText(if (running) R.string.status_running else R.string.status_stopped)
+            binding.btnConnect.setImageResource(if (running) R.drawable.ic_pause else R.drawable.ic_connect)
+
+            val targetColor = ContextCompat.getColor(
+                this, if (running) R.color.accent_error else R.color.accent_success
+            )
+            if (connectBtnCurrentColor == 0) {
+                connectBtnCurrentColor = targetColor
+                binding.btnConnect.imageTintList = ColorStateList.valueOf(targetColor)
+            } else if (connectBtnCurrentColor != targetColor) {
+                colorAnimator?.cancel()
+                colorAnimator = ValueAnimator.ofObject(ArgbEvaluator(), connectBtnCurrentColor, targetColor).apply {
+                    duration = 220
+                    addUpdateListener { animator ->
+                        val color = animator.animatedValue as Int
+                        binding.btnConnect.imageTintList = ColorStateList.valueOf(color)
+                    }
+                    start()
+                }
+                connectBtnCurrentColor = targetColor
+            }
+
             binding.btnImportConfig.isEnabled = !running
             binding.btnInstallCA.isEnabled = !running
+            binding.btnImportConfig.alpha = if (running) 0.5f else 1f
+            binding.btnInstallCA.alpha = if (running) 0.5f else 1f
+            binding.logCard.visibility = if (running) View.VISIBLE else View.GONE
+            binding.bottomActions.visibility = if (running) View.GONE else View.VISIBLE
+            if (!running) { binding.logOutput.text = ""; logCache.clear() }
             refreshList(running)
         }
     }
@@ -151,13 +329,12 @@ class MainActivity : AppCompatActivity() {
     private fun toggleLanguage() {
         val currentLocale = AppCompatDelegate.getApplicationLocales()[0]?.language ?: Locale.getDefault().language
         val newLocale = if (currentLocale == "fa") "en" else "fa"
-        
-        val appLocale: LocaleListCompat = LocaleListCompat.forLanguageTags(newLocale)
-        AppCompatDelegate.setApplicationLocales(appLocale)
+        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(newLocale))
     }
 
     private fun toggleTheme() {
-        val isNight = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val isNight = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
         val nextMode = if (isNight) AppCompatDelegate.MODE_NIGHT_NO else AppCompatDelegate.MODE_NIGHT_YES
         AppCompatDelegate.setDefaultNightMode(nextMode)
         prefs.edit().putInt("theme_mode", nextMode).apply()
@@ -170,7 +347,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateThemeButton() {
-        val isNight = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val isNight = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
         binding.btnTheme.setImageResource(if (isNight) R.drawable.ic_sun else R.drawable.ic_moon)
         binding.btnTheme.imageTintList = ContextCompat.getColorStateList(this, R.color.icon)
     }
@@ -178,6 +356,17 @@ class MainActivity : AppCompatActivity() {
     private fun refreshList(running: Boolean = Mobile.isRunning()) {
         val configs = loadConfigs()
         binding.configList.removeAllViews()
+
+        val connectEnabled = running || selectedUrl != null
+        binding.btnConnect.visibility = View.VISIBLE
+        binding.btnConnect.isEnabled = connectEnabled
+        binding.btnConnect.alpha = if (connectEnabled) 1f else 0.4f
+
+        if (running) {
+            binding.configScroll.visibility = View.GONE
+            binding.emptyState.visibility = View.GONE
+            return
+        }
 
         if (configs.isEmpty()) {
             binding.configScroll.visibility = View.GONE
@@ -191,28 +380,34 @@ class MainActivity : AppCompatActivity() {
         val dp = resources.displayMetrics.density
         val iconButtonSize = (40 * dp).toInt()
         val iconButtonPadding = (8 * dp).toInt()
-
         val hostnames = configs.map { (url, _) -> configLabel(url) }
 
         configs.forEach { (url, key) ->
             val isActive = url == activeUrl && key == activeKey
+            val isSelected = !isActive && url == selectedUrl && key == selectedKey
 
             val card = CardView(this).apply {
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { bottomMargin = (12 * dp).toInt() }
-                radius = 12 * dp
+                ).apply { bottomMargin = (10 * dp).toInt() }
+                radius = 14 * dp
                 cardElevation = 0f
-                setCardBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.surface))
+                setCardBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.card_bg))
             }
 
+            val rowBg = when {
+                isActive -> R.drawable.bg_card_active
+                isSelected -> R.drawable.bg_card_selected
+                else -> R.drawable.bg_card
+            }
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 layoutDirection = View.LAYOUT_DIRECTION_LTR
-                val p = (16 * dp).toInt()
+                val p = (14 * dp).toInt()
                 setPadding(p, p, p, p)
+                background = ContextCompat.getDrawable(this@MainActivity, rowBg)
             }
 
             val baseLabel = configLabel(url)
@@ -222,13 +417,13 @@ class MainActivity : AppCompatActivity() {
             val label = TextView(this).apply {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 text = displayLabel
-                textSize = 16f
+                textSize = 15f
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 textAlignment = View.TEXT_ALIGNMENT_VIEW_START
                 textDirection = View.TEXT_DIRECTION_LTR
                 setTextColor(ContextCompat.getColor(this@MainActivity, R.color.title))
-                if (isActive) setTypeface(null, Typeface.BOLD)
+                if (isActive || isSelected) setTypeface(null, Typeface.BOLD)
             }
 
             val urlList = url.split(",").map { it.trim() }.filter { it.isNotEmpty() }
@@ -236,12 +431,11 @@ class MainActivity : AppCompatActivity() {
                 visibility = if (urlList.size > 1) View.VISIBLE else View.GONE
                 setImageDrawable(ContextCompat.getDrawable(this@MainActivity, R.drawable.ic_info))
                 background = null
-                imageTintList = ContextCompat.getColorStateList(this@MainActivity, R.color.icon)
+                imageTintList = ContextCompat.getColorStateList(this@MainActivity, R.color.text_dim)
                 scaleType = android.widget.ImageView.ScaleType.CENTER
                 setPadding(iconButtonPadding, iconButtonPadding, iconButtonPadding, iconButtonPadding)
-                layoutParams = LinearLayout.LayoutParams(
-                    iconButtonSize, iconButtonSize
-                ).apply { marginEnd = (4 * dp).toInt() }
+                layoutParams = LinearLayout.LayoutParams(iconButtonSize, iconButtonSize)
+                    .apply { marginEnd = (4 * dp).toInt() }
             }
             infoBtn.setOnClickListener {
                 val lines = urlList.mapIndexed { i, u ->
@@ -249,39 +443,23 @@ class MainActivity : AppCompatActivity() {
                     val short = if (id.length >= 6) "…${id.takeLast(10)}" else u.substringAfter("://").substringBefore("/")
                     "${i + 1}. $short"
                 }.joinToString("\n")
-                AlertDialog.Builder(this@MainActivity)
-                    .setTitle(R.string.btn_ok) // Reusing OK as placeholder for title
+                AlertDialog.Builder(this@MainActivity, R.style.Dialog_Zyrln)
+                    .setTitle(R.string.btn_ok)
                     .setMessage(lines)
                     .setPositiveButton(R.string.btn_ok, null)
                     .show()
             }
 
-            val actionBtn = android.widget.ImageButton(this).apply {
-                layoutParams = LinearLayout.LayoutParams(
-                    iconButtonSize, iconButtonSize
-                ).apply { marginEnd = (12 * dp).toInt() }
-                setImageDrawable(ContextCompat.getDrawable(this@MainActivity,
-                    if (isActive && running) R.drawable.ic_pause else R.drawable.ic_play))
-                background = null
-                imageTintList = ContextCompat.getColorStateList(this@MainActivity, R.color.icon)
-                scaleType = android.widget.ImageView.ScaleType.CENTER
-                setPadding(iconButtonPadding, iconButtonPadding, iconButtonPadding, iconButtonPadding)
-                isClickable = false
-                isFocusable = false
-            }
-
             val deleteBtn = android.widget.ImageButton(this).apply {
-                layoutParams = LinearLayout.LayoutParams(
-                    iconButtonSize, iconButtonSize
-                ).apply { marginStart = (8 * dp).toInt() }
+                layoutParams = LinearLayout.LayoutParams(iconButtonSize, iconButtonSize)
+                    .apply { marginStart = (6 * dp).toInt() }
                 setImageDrawable(ContextCompat.getDrawable(this@MainActivity, R.drawable.ic_delete))
                 background = null
-                imageTintList = ContextCompat.getColorStateList(this@MainActivity, R.color.icon)
+                imageTintList = ContextCompat.getColorStateList(this@MainActivity, R.color.text_dim)
                 scaleType = android.widget.ImageView.ScaleType.CENTER
                 setPadding(iconButtonPadding, iconButtonPadding, iconButtonPadding, iconButtonPadding)
             }
 
-            row.addView(actionBtn)
             row.addView(label)
             row.addView(infoBtn)
             row.addView(deleteBtn)
@@ -290,29 +468,50 @@ class MainActivity : AppCompatActivity() {
             card.setOnClickListener {
                 if (isActive && running) {
                     stopVpn()
-                } else {
-                    if (running) stopVpn()
-                    connectConfig(url, key)
+                } else if (!running) {
+                    // Select this row; deselect if already selected
+                    if (isSelected) {
+                        selectedUrl = null
+                        selectedKey = null
+                    } else {
+                        selectedUrl = url
+                        selectedKey = key
+                    }
+                    refreshList(running = false)
                 }
             }
 
             deleteBtn.setOnClickListener {
-                AlertDialog.Builder(this)
+                AlertDialog.Builder(this, R.style.Dialog_Zyrln)
                     .setTitle(R.string.dialog_remove_title)
                     .setMessage(if (isActive && running)
                         getString(R.string.dialog_remove_active, displayLabel)
                     else
                         getString(R.string.dialog_remove_inactive, displayLabel))
                     .setPositiveButton(R.string.btn_remove) { _, _ ->
-                        if (isActive && running) stopVpn()
-                        deleteConfig(url, key)
-                        refreshList(running = Mobile.isRunning())
+                        val deleteAnim = AnimationUtils.loadAnimation(this, R.anim.motion_delete)
+                        deleteAnim.setAnimationListener(object : Animation.AnimationListener {
+                            override fun onAnimationStart(a: Animation?) {}
+                            override fun onAnimationRepeat(a: Animation?) {}
+                            override fun onAnimationEnd(a: Animation?) {
+                                if (isActive && running) stopVpn()
+                                deleteConfig(url, key)
+                                refreshList(running = Mobile.isRunning())
+                            }
+                        })
+                        card.startAnimation(deleteAnim)
                     }
                     .setNegativeButton(R.string.btn_cancel, null)
                     .show()
             }
 
             binding.configList.addView(card)
+
+            // Staggered entrance: each card slides up with a small delay
+            val enterAnim = AnimationUtils.loadAnimation(this, R.anim.card_enter)
+            val configIndex = configs.indexOf(Pair(url, key))
+            enterAnim.startOffset = (configIndex * 40L).coerceAtMost(120L)
+            card.startAnimation(enterAnim)
         }
     }
 
@@ -324,9 +523,10 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.error_ca_required, Toast.LENGTH_LONG).show()
             return
         }
-
         activeUrl = url
         activeKey = key
+        selectedUrl = null
+        selectedKey = null
         prefs.edit().putString("url", url).putString("key", key).apply()
         refreshList(running = false)
         val vpnIntent = VpnService.prepare(this)
@@ -338,9 +538,47 @@ class MainActivity : AppCompatActivity() {
         return File(certDir, "ca.pem").exists() && File(certDir, "ca.key").exists()
     }
 
+    private fun appendLog(level: String, msg: String) {
+        runOnUiThread {
+            val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+                .format(java.util.Date())
+            val color = when (level) {
+                "error" -> ContextCompat.getColor(this, R.color.accent_error)
+                "system" -> ContextCompat.getColor(this, R.color.primary)
+                else -> ContextCompat.getColor(this, R.color.text_dim)
+            }
+            val line = "[$time] $msg\n"
+            val spannable = android.text.SpannableString(line)
+            spannable.setSpan(
+                android.text.style.ForegroundColorSpan(color),
+                0, line.length,
+                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            logCache.append(spannable)
+            binding.logOutput.append(spannable)
+            // Count newlines; if over 200 lines trim from the front until 200 remain
+            var newlines = 0
+            for (i in logCache.indices) if (logCache[i] == '\n') newlines++
+            if (newlines > 200) {
+                var toRemove = newlines - 200
+                var pos = 0
+                while (toRemove > 0 && pos < logCache.length) {
+                    if (logCache[pos] == '\n') toRemove--
+                    pos++
+                }
+                logCache.delete(0, pos)
+                binding.logOutput.text = logCache
+            }
+            binding.logScroll.post { binding.logScroll.fullScroll(android.view.View.FOCUS_DOWN) }
+        }
+    }
+
     private fun launchVpnService() {
         val url = prefs.getString("url", "") ?: ""
         val key = prefs.getString("key", "") ?: ""
+        playMotion(binding.btnConnect, R.anim.motion_confirm)
+        startUptimeTicker()
+        startLogPolling()
         updateUI(running = true)
         ContextCompat.startForegroundService(this, Intent(this, RelayVpnService::class.java).apply {
             action = RelayVpnService.ACTION_START
@@ -363,11 +601,11 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.msg_clipboard_empty, Toast.LENGTH_SHORT).show()
             return
         }
-
         try {
             val (url, key) = ConfigUtils.parseImportText(rawText)
             if (saveConfig(url, key)) {
                 refreshList()
+                playMotion(binding.btnImportConfig, R.anim.motion_confirm)
                 Toast.makeText(this, R.string.msg_config_saved_connect, Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(this, R.string.msg_already_exists, Toast.LENGTH_SHORT).show()
@@ -377,7 +615,6 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, getString(R.string.msg_invalid_config), Toast.LENGTH_LONG).show()
         }
     }
-
 
     private fun loadConfigs(): List<Pair<String, String>> {
         val raw = prefs.getString("configs", "[]") ?: "[]"
@@ -407,40 +644,62 @@ class MainActivity : AppCompatActivity() {
         prefs.edit().putString("configs", arr.toString()).apply()
     }
 
-    private fun configLabel(url: String): String {
-        return ConfigUtils.configLabel(url)
+    private fun playMotion(v: View?, animRes: Int) {
+        v ?: return
+        val anim = AnimationUtils.loadAnimation(this, animRes)
+        v.startAnimation(anim)
     }
+
+    private fun configLabel(url: String) = ConfigUtils.configLabel(url)
 
     private fun installCACert() {
         val certDir = File(filesDir, "certs")
         certDir.mkdirs()
         val certFile = File(certDir, "ca.pem")
         val keyFile = File(certDir, "ca.key")
-        generateAndExportCert(certFile, keyFile)
-    }
-
-    private fun generateAndExportCert(certFile: File, keyFile: File) {
-        val err = Mobile.generateCA(certFile.absolutePath, keyFile.absolutePath)
-        if (err.isNotEmpty()) {
-            Toast.makeText(this, "CA generation failed: $err", Toast.LENGTH_LONG).show()
-            return
+        if (!certFile.exists() || !keyFile.exists()) {
+            // Generate once, reuse forever
+            val err = Mobile.generateCA(certFile.absolutePath, keyFile.absolutePath)
+            if (err.isNotEmpty()) {
+                Toast.makeText(this, "CA generation failed: $err", Toast.LENGTH_LONG).show()
+                return
+            }
         }
         createDocumentLauncher.launch("zyrln-ca.pem")
+    }
+
+    private fun shareLog() {
+        val text = logCache.toString().trim()
+        if (text.isEmpty()) {
+            Toast.makeText(this, R.string.log_empty, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val header = buildString {
+            appendLine("Zyrln Android v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+            appendLine("Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
+            appendLine("Android: ${android.os.Build.VERSION.RELEASE} (SDK ${android.os.Build.VERSION.SDK_INT})")
+            appendLine("Time: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss z", java.util.Locale.US).format(java.util.Date())}")
+            appendLine("---")
+        }
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, getString(R.string.log_share_subject))
+            putExtra(Intent.EXTRA_TEXT, header + text)
+        }
+        startActivity(Intent.createChooser(intent, getString(R.string.log_share_subject)))
     }
 
     private fun saveCertToUri(uri: Uri) {
         val certFile = File(File(filesDir, "certs"), "ca.pem")
         try {
             contentResolver.openOutputStream(uri)?.use { output ->
-                certFile.inputStream().use { input ->
-                    input.copyTo(output)
-                }
+                certFile.inputStream().use { input -> input.copyTo(output) }
             }
+            playMotion(binding.btnInstallCA, R.anim.motion_confirm)
             Toast.makeText(this, R.string.msg_cert_saved_success, Toast.LENGTH_SHORT).show()
-
-            AlertDialog.Builder(this)
+            AlertDialog.Builder(this, R.style.Dialog_Zyrln)
                 .setTitle(R.string.dialog_ca_title)
-                .setMessage(R.string.dialog_ca_reinstall_message)
+                .setMessage(R.string.dialog_ca_message_generic)
                 .setPositiveButton(R.string.btn_open_settings) { _, _ ->
                     startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
                 }

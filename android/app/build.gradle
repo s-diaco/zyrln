@@ -17,8 +17,8 @@ android {
         applicationId "com.zyrln.relay"
         minSdk 21
         targetSdk 34
-        versionCode 9
-        versionName "1.5.1"
+        versionCode 10
+        versionName "1.5.1-pre4"
     }
 
     signingConfigs {

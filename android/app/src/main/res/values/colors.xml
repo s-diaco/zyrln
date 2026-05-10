@@ -1,14 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="background">#FFFFFF</color>
-    <color name="title">#0D1B3E</color>
-    <color name="subtitle">#546E7A</color>
-    <color name="icon">#111111</color>
-    <color name="dot_active">#00C853</color>
-    <color name="dot_inactive">#CFD8DC</color>
-    <color name="primary">#1A237E</color>
-    <color name="primary_variant">#000051</color>
-    <color name="accent">#2979FF</color>
-    <color name="surface">#F5F7FA</color>
-    <color name="ic_launcher_background">#0D1B3E</color>
+    <color name="background">#F8FAFC</color>
+    <color name="card_bg">#FFFFFF</color>
+    <color name="title">#0f172a</color>
+    <color name="subtitle">#64748b</color>
+    <color name="icon">#0f172a</color>
+    <color name="border">#e2e8f0</color>
+    <color name="dot_active">#10b981</color>
+    <color name="dot_inactive">#94a3b8</color>
+    <color name="primary">#2563eb</color>
+    <color name="primary_variant">#1d4ed8</color>
+    <color name="accent_success">#10b981</color>
+    <color name="accent_error">#ef4444</color>
+    <color name="accent">#2563eb</color>
+    <color name="surface">#f1f5f9</color>
+    <color name="text_dim">#94a3b8</color>
+    <color name="ic_launcher_background">#0f172a</color>
 </resources>

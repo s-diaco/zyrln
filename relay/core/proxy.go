@@ -11,11 +11,50 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
 // OnRequest is an optional callback triggered for every proxied request.
 var OnRequest func(method, url string)
+
+// logFuncPtr holds the current LogFunc via atomic pointer to avoid data races.
+var logFuncPtr atomic.Pointer[func(level, msg string)]
+
+// LogFunc receives structured log lines from the proxy. Set before calling StartProxy.
+// level is "info", "error", or "system".
+var LogFunc func(level, msg string) // kept for API compat; use SetLogFunc for safe concurrent access
+
+func init() {
+	// no-op so logFuncPtr starts as nil
+}
+
+// SetLogFunc sets the log callback in a race-safe way.
+// Replaces direct assignment to LogFunc when the proxy may already be running.
+func SetLogFunc(f func(level, msg string)) {
+	if f == nil {
+		logFuncPtr.Store(nil)
+	} else {
+		logFuncPtr.Store(&f)
+	}
+}
+
+func logf(level, format string, args ...any) {
+	if p := logFuncPtr.Load(); p != nil {
+		(*p)(level, fmt.Sprintf(format, args...))
+	}
+}
+
+func fmtBytes(n int) string {
+	switch {
+	case n >= 1024*1024:
+		return fmt.Sprintf("%.1f MB", float64(n)/(1024*1024))
+	case n >= 1024:
+		return fmt.Sprintf("%.1f KB", float64(n)/1024)
+	default:
+		return fmt.Sprintf("%d B", n)
+	}
+}
 
 // ServeProxy starts the relay HTTP+HTTPS MITM proxy and blocks until it exits.
 // appScriptURLs is tried in order; the first that succeeds is used for each request.
@@ -30,10 +69,13 @@ func ServeProxy(listenAddr string, appScriptURLs []string, frontDomain, authKey 
 // ServeProxyWithSOCKS starts the relay HTTP+HTTPS MITM proxy and a SOCKS5 listener.
 // SOCKS5 support is limited to HTTP and HTTPS traffic so it can reuse the relay pipeline.
 func ServeProxyWithSOCKS(httpListenAddr, socksListenAddr string, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) error {
-	httpSrv, socksSrv, err := buildProxyServers(httpListenAddr, socksListenAddr, appScriptURLs, frontDomain, authKey, ca, client, timeout)
+	coal, err := newProxyCoalescer(appScriptURLs, frontDomain, authKey, client, timeout)
 	if err != nil {
 		return err
 	}
+	httpSrv := buildHTTPProxyServer(httpListenAddr, coal, ca)
+	httpSrv.RegisterOnShutdown(coal.Stop)
+	socksSrv := NewSOCKSServer(socksListenAddr, coal, ca)
 
 	errCh := make(chan error, 2)
 	go func() {
@@ -50,11 +92,10 @@ func ServeProxyWithSOCKS(httpListenAddr, socksListenAddr string, appScriptURLs [
 // appScriptURLs is tried in order; the first that succeeds is used for each request.
 // Close the returned listener (or call server.Close) to stop the proxy.
 func StartProxy(listenAddr string, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) (*http.Server, net.Listener, error) {
-	srv, err := listenAndServeProxy(listenAddr, appScriptURLs, frontDomain, authKey, ca, client, timeout)
+	srv, _, err := StartProxyWithCoalescer(listenAddr, appScriptURLs, frontDomain, authKey, ca, client, timeout)
 	if err != nil {
 		return nil, nil, err
 	}
-
 	ln, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		return nil, nil, err
@@ -63,44 +104,59 @@ func StartProxy(listenAddr string, appScriptURLs []string, frontDomain, authKey 
 	return srv, ln, nil
 }
 
-// StartProxyWithSOCKS starts the relay HTTP proxy and a SOCKS5 listener in the background.
-// Close the returned listeners and servers to stop both endpoints.
-func StartProxyWithSOCKS(httpListenAddr, socksListenAddr string, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) (*http.Server, net.Listener, *SOCKSServer, net.Listener, error) {
-	httpSrv, socksSrv, err := buildProxyServers(httpListenAddr, socksListenAddr, appScriptURLs, frontDomain, authKey, ca, client, timeout)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	httpLn, err := net.Listen("tcp", httpListenAddr)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	socksLn, err := net.Listen("tcp", socksListenAddr)
-	if err != nil {
-		_ = httpLn.Close()
-		return nil, nil, nil, nil, err
-	}
-
-	go func() { _ = httpSrv.Serve(httpLn) }()
-	go func() { _ = socksSrv.Serve(socksLn) }()
-	return httpSrv, httpLn, socksSrv, socksLn, nil
-}
-
-func buildProxyServers(httpListenAddr, socksListenAddr string, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) (*http.Server, *SOCKSServer, error) {
+// StartProxyWithCoalescer is like StartProxy but also returns the Coalescer so
+// callers can reuse it for ping/warmup without creating a separate HTTP client.
+func StartProxyWithCoalescer(listenAddr string, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) (*http.Server, *Coalescer, error) {
 	coal, err := newProxyCoalescer(appScriptURLs, frontDomain, authKey, client, timeout)
 	if err != nil {
 		return nil, nil, err
 	}
-	return buildHTTPProxyServer(httpListenAddr, coal, ca), NewSOCKSServer(socksListenAddr, coal, ca), nil
+	srv := buildHTTPProxyServer(listenAddr, coal, ca)
+	srv.RegisterOnShutdown(coal.Stop)
+	return srv, coal, nil
 }
+
+// StartProxyWithSOCKS starts the relay HTTP proxy and a SOCKS5 listener in the background.
+// Close the returned listeners and servers to stop both endpoints.
+func StartProxyWithSOCKS(httpListenAddr, socksListenAddr string, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) (*http.Server, net.Listener, *SOCKSServer, net.Listener, error) {
+	srv, ln, socksSrv, socksLn, _, err := StartProxyWithSOCKSAndCoalescer(httpListenAddr, socksListenAddr, appScriptURLs, frontDomain, authKey, ca, client, timeout)
+	return srv, ln, socksSrv, socksLn, err
+}
+
+// StartProxyWithSOCKSAndCoalescer is like StartProxyWithSOCKS but also returns the Coalescer.
+func StartProxyWithSOCKSAndCoalescer(httpListenAddr, socksListenAddr string, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) (*http.Server, net.Listener, *SOCKSServer, net.Listener, *Coalescer, error) {
+	coal, err := newProxyCoalescer(appScriptURLs, frontDomain, authKey, client, timeout)
+	if err != nil {
+		return nil, nil, nil, nil, nil, err
+	}
+	httpSrv := buildHTTPProxyServer(httpListenAddr, coal, ca)
+	httpSrv.RegisterOnShutdown(coal.Stop)
+	socksSrv := NewSOCKSServer(socksListenAddr, coal, ca)
+
+	httpLn, err := net.Listen("tcp", httpListenAddr)
+	if err != nil {
+		return nil, nil, nil, nil, nil, err
+	}
+	socksLn, err := net.Listen("tcp", socksListenAddr)
+	if err != nil {
+		_ = httpLn.Close()
+		return nil, nil, nil, nil, nil, err
+	}
+
+	go func() { _ = httpSrv.Serve(httpLn) }()
+	go func() { _ = socksSrv.Serve(socksLn) }()
+	return httpSrv, httpLn, socksSrv, socksLn, coal, nil
+}
+
 
 func listenAndServeProxy(listenAddr string, appScriptURLs []string, frontDomain, authKey string, ca *CertAuthority, client *http.Client, timeout time.Duration) (*http.Server, error) {
 	coal, err := newProxyCoalescer(appScriptURLs, frontDomain, authKey, client, timeout)
 	if err != nil {
 		return nil, err
 	}
-	return buildHTTPProxyServer(listenAddr, coal, ca), nil
+	srv := buildHTTPProxyServer(listenAddr, coal, ca)
+	srv.RegisterOnShutdown(coal.Stop)
+	return srv, nil
 }
 
 func newProxyCoalescer(appScriptURLs []string, frontDomain, authKey string, client *http.Client, timeout time.Duration) (*Coalescer, error) {
@@ -146,7 +202,7 @@ func handleHTTP(w http.ResponseWriter, r *http.Request, coal *Coalescer) {
 	relayResp, err := coal.Submit(r.Method, targetURL, forwardHeaders(r.Header), body)
 	if err != nil {
 		http.Error(w, "relay failed: "+err.Error(), http.StatusBadGateway)
-		fmt.Printf("%s %s -> error: %s\n", r.Method, targetURL, err)
+		logf("error", "%s %s → relay error: %s", r.Method, targetURL, err)
 		return
 	}
 
@@ -159,7 +215,7 @@ func handleHTTP(w http.ResponseWriter, r *http.Request, coal *Coalescer) {
 	}
 	w.WriteHeader(relayResp.Status)
 	_, _ = w.Write(relayResp.Body)
-	fmt.Printf("%s %s -> %d %dB\n", r.Method, targetURL, relayResp.Status, len(relayResp.Body))
+	logf("info", "%s %s → %d %s", r.Method, targetURL, relayResp.Status, fmtBytes(len(relayResp.Body)))
 }
 
 func handleConnect(w http.ResponseWriter, r *http.Request, coal *Coalescer, ca *CertAuthority) {
@@ -189,7 +245,7 @@ func handleConnect(w http.ResponseWriter, r *http.Request, coal *Coalescer, ca *
 
 	cert, err := ca.CertForHost(certHost)
 	if err != nil {
-		fmt.Printf("mitm cert %s: %v\n", certHost, err)
+		logf("error", "TLS cert %s: %v", certHost, err)
 		return
 	}
 
@@ -198,6 +254,7 @@ func handleConnect(w http.ResponseWriter, r *http.Request, coal *Coalescer, ca *
 		MinVersion:   tls.VersionTLS12,
 	})
 	if err := tlsConn.Handshake(); err != nil {
+		logf("error", "TLS handshake %s: %v (CA not installed?)", certHost, err)
 		return
 	}
 	defer tlsConn.Close()
@@ -211,7 +268,7 @@ func handleMITMTLS(tlsConn net.Conn, certHost, targetHost string, coal *Coalesce
 		req, err := http.ReadRequest(reader)
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
-				fmt.Printf("mitm read %s: %v\n", certHost, err)
+				logf("error", "MITM read %s: %v", certHost, err)
 			}
 			return
 		}
@@ -235,7 +292,7 @@ func handleMITMTLS(tlsConn net.Conn, certHost, targetHost string, coal *Coalesce
 		relayResp, err := coal.Submit(req.Method, targetURL, forwardHeaders(req.Header), body)
 		if err != nil {
 			writeHTTPError(tlsConn, http.StatusBadGateway, "relay failed: "+err.Error())
-			fmt.Printf("%s %s -> error: %s\n", req.Method, targetURL, err)
+			logf("error", "%s %s → relay error: %s", req.Method, targetURL, err)
 			return
 		}
 
@@ -262,7 +319,7 @@ func handleMITMTLS(tlsConn net.Conn, certHost, targetHost string, coal *Coalesce
 		if err := resp.Write(tlsConn); err != nil {
 			return
 		}
-		fmt.Printf("%s %s -> %d %dB\n", req.Method, targetURL, relayResp.Status, len(relayResp.Body))
+		logf("info", "%s %s → %d %s", req.Method, targetURL, relayResp.Status, fmtBytes(len(relayResp.Body)))
 
 		if strings.EqualFold(req.Header.Get("Connection"), "close") {
 			return
@@ -324,7 +381,7 @@ func (s *SOCKSServer) handleConn(conn net.Conn) {
 
 		cert, err := s.ca.CertForHost(certHost)
 		if err != nil {
-			fmt.Printf("socks mitm cert %s: %v\n", certHost, err)
+			logf("error", "SOCKS TLS cert %s: %v", certHost, err)
 			return
 		}
 
@@ -334,6 +391,7 @@ func (s *SOCKSServer) handleConn(conn net.Conn) {
 		})
 		defer tlsConn.Close()
 		if err := tlsConn.Handshake(); err != nil {
+			logf("error", "SOCKS TLS handshake %s: %v (CA not installed?)", certHost, err)
 			return
 		}
 		handleMITMTLS(tlsConn, certHost, targetHost, s.coal)
@@ -462,7 +520,7 @@ func handleSOCKSHTTP(conn net.Conn, targetHost string, coal *Coalescer) {
 		req, err := http.ReadRequest(reader)
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
-				fmt.Printf("socks http read %s: %v\n", targetHost, err)
+				logf("error", "SOCKS read %s: %v", targetHost, err)
 			}
 			return
 		}
@@ -489,7 +547,7 @@ func handleSOCKSHTTP(conn net.Conn, targetHost string, coal *Coalescer) {
 		relayResp, err := coal.Submit(req.Method, targetURL, forwardHeaders(req.Header), body)
 		if err != nil {
 			writeHTTPError(conn, http.StatusBadGateway, "relay failed: "+err.Error())
-			fmt.Printf("%s %s -> error: %s\n", req.Method, targetURL, err)
+			logf("error", "%s %s → relay error: %s", req.Method, targetURL, err)
 			return
 		}
 
@@ -516,7 +574,7 @@ func handleSOCKSHTTP(conn net.Conn, targetHost string, coal *Coalescer) {
 		if err := resp.Write(conn); err != nil {
 			return
 		}
-		fmt.Printf("%s %s -> %d %dB\n", req.Method, targetURL, relayResp.Status, len(relayResp.Body))
+		logf("info", "%s %s → %d %s", req.Method, targetURL, relayResp.Status, fmtBytes(len(relayResp.Body)))
 
 		if strings.EqualFold(req.Header.Get("Connection"), "close") {
 			return

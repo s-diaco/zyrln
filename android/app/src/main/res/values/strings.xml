@@ -43,4 +43,9 @@
     <string name="btn_open_settings">Open Settings</string>
     <string name="btn_later">Later</string>
     <string name="dialog_ca_reinstall_message">A NEW certificate has been generated. You MUST now re-install it in your phone settings (Security > Install from storage) for HTTPS to work properly.</string>
+    <string name="label_uptime">Uptime</string>
+    <string name="log_title">LIVE LOG</string>
+    <string name="log_share_subject">Zyrln Debug Log</string>
+    <string name="log_empty">No logs to share yet.</string>
+    <string name="select_config_hint">Tap a config row to select it, then Connect</string>
 </resources>

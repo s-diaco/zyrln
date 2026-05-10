@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- confirmPulse: brief lift + settle, used on save/connect success -->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:interpolator="@android:anim/decelerate_interpolator">
+    <translate
+        android:fromYDelta="0"
+        android:toYDelta="-4dp"
+        android:duration="180"
+        android:repeatCount="1"
+        android:repeatMode="reverse" />
+    <alpha
+        android:fromAlpha="1"
+        android:toAlpha="0.85"
+        android:duration="180"
+        android:repeatCount="1"
+        android:repeatMode="reverse" />
+</set>

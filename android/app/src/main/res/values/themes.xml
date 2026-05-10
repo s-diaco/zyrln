@@ -7,6 +7,61 @@
         <item name="colorSecondary">@color/accent</item>
         <item name="colorOnSecondary">#FFFFFF</item>
         <item name="android:windowBackground">@color/background</item>
-        <item name="android:statusBarColor">@color/primary_variant</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:fontFamily">sans-serif</item>
+    </style>
+
+    <style name="CardStyle">
+        <item name="android:background">@color/card_bg</item>
+    </style>
+
+    <style name="Dialog.Zyrln" parent="Theme.MaterialComponents.DayNight.Dialog.Alert">
+        <item name="android:windowAnimationStyle">@style/Dialog.Zyrln.Animation</item>
+        <item name="android:windowBackground">@drawable/bg_dialog</item>
+        <item name="colorSurface">@color/card_bg</item>
+        <item name="colorOnSurface">@color/title</item>
+        <item name="android:textColorPrimary">@color/title</item>
+        <item name="android:textColorSecondary">@color/subtitle</item>
+        <item name="android:textColor">@color/title</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Dialog.Zyrln.Button</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Dialog.Zyrln.Button.Text</item>
+    </style>
+
+    <style name="Dialog.Zyrln.Animation">
+        <item name="android:windowEnterAnimation">@anim/dialog_zoom_in</item>
+        <item name="android:windowExitAnimation">@anim/dialog_zoom_out</item>
+    </style>
+
+    <style name="Dialog.Zyrln.Button" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">@color/primary</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="cornerRadius">8dp</item>
+        <item name="android:letterSpacing">0</item>
+    </style>
+
+    <style name="Dialog.Zyrln.Button.Text" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:textColor">@color/text_dim</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:letterSpacing">0</item>
+    </style>
+
+    <style name="Btn.Connect" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">@color/accent_success</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="cornerRadius">10dp</item>
+        <item name="android:letterSpacing">0</item>
+    </style>
+
+    <style name="Btn.Secondary" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="strokeColor">@color/border</item>
+        <item name="android:textColor">@color/subtitle</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="cornerRadius">10dp</item>
+        <item name="android:letterSpacing">0</item>
     </style>
 </resources>

@@ -15,15 +15,35 @@
         <header class="main-header">
             <div class="logo">
                 <img class="logo-icon" src="zyrln-icon.svg" alt="" aria-hidden="true">
-                <span class="logo-text"><span data-i18n="brand.name">ZYRLN</span> <span class="v-tag">v1.5.1-pre3</span></span>
+                <span class="logo-text"><span data-i18n="brand.name">ZYRLN</span> <span class="v-tag">v1.5.1-pre4</span></span>
             </div>
             <div class="header-actions">
-                <button id="themeToggleBtn" class="theme-btn" type="button" aria-label="Toggle theme">☀</button>
+                <button id="themeToggleBtn" class="theme-btn" type="button" data-i18n-title="button.theme" aria-label="Toggle theme"></button>
                 <button id="languageToggleBtn" class="lang-btn" type="button">FA</button>
                 <div class="header-status">
-                    <div class="status-indicator" id="proxyStatusIndicator" data-testid="proxy-status-indicator"></div>
-                    <span id="proxyStatusText" data-testid="proxy-status-text" data-i18n="status.disconnected">Disconnected</span>
-                    <button id="toggleProxyBtn" class="connect-btn" data-testid="toggle-proxy-btn" data-i18n="button.connect">Connect</button>
+<div class="header-metrics" aria-label="Proxy metrics">
+                        <div class="mini-stat">
+                            <span class="label" data-i18n="stat.uptime">Uptime</span>
+                            <span class="value" id="uptimeValue">00:00:00</span>
+                        </div>
+                        <div class="mini-stat">
+                            <span class="label" data-i18n="stat.requests">Requests</span>
+                            <span class="value" id="requestCount">0</span>
+                        </div>
+                    </div>
+                    <div class="header-listen">
+                        <div class="header-listen-field">
+                            <span class="label" data-i18n="label.listen">HTTP</span>
+                            <input class="listen-input" type="text" id="listen" name="listen" data-testid="input-listen" placeholder="127.0.0.1:8085" autocomplete="off" spellcheck="false">
+                        </div>
+                        <div class="header-listen-field">
+                            <span class="label" data-i18n="label.socksListen">SOCKS5</span>
+                            <input class="listen-input" type="text" id="socks-listen" name="socks-listen" data-testid="input-socks-listen" placeholder="127.0.0.1:1080" autocomplete="off" spellcheck="false">
+                        </div>
+                    </div>
+                    <button id="toggleProxyBtn" class="connect-btn icon-only" data-testid="toggle-proxy-btn" data-i18n-title="button.connect" aria-label="Connect">
+                        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v10"></path><path d="M18.4 6.6a9 9 0 1 1-12.8 0"></path></svg>
+                    </button>
                 </div>
             </div>
         </header>
@@ -32,51 +52,60 @@
             <!-- Left: Configuration -->
             <section class="card config-section">
                 <div class="card-header">
-                    <h2 data-i18n="section.config">⚙️ Configuration</h2>
+                    <h2 data-i18n="section.config">Relay Profile</h2>
+                    <div class="profile-actions">
+                        <div class="custom-select" id="profileSelectWrapper" data-testid="profile-select">
+                            <button type="button" class="custom-select-trigger" id="profileSelectTrigger" aria-haspopup="listbox" aria-expanded="false">
+                                <span id="profileSelectLabel">—</span>
+                                <svg class="ui-icon custom-select-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+                            </button>
+                            <ul class="custom-select-dropdown" id="profileSelectDropdown" role="listbox"></ul>
+                        </div>
+                        <button type="button" id="addProfileBtn" class="icon-action" data-testid="btn-add-profile" data-i18n-title="button.addProfile" aria-label="Add profile">
+                            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+                        </button>
+                        <button type="button" id="deleteProfileBtn" class="icon-action danger-soft" data-testid="btn-delete-profile" data-i18n-title="button.deleteProfile" aria-label="Delete profile">
+                            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
+                        </button>
+                    </div>
                 </div>
-                <form id="configForm" data-testid="config-form">
-                    <div class="form-group">
-                        <label for="fronted-appscript-url">
-                            <span data-i18n="label.endpoints">Relay Endpoints (Apps Script)</span>
-                            <span class="help-icon" data-i18n-title="help.endpoints" title="One or more Google Apps Script URLs. Commas allow automatic failover if one fails.">?</span>
-                        </label>
-                        <textarea id="fronted-appscript-url" name="fronted-appscript-url" data-testid="input-url" placeholder="https://script.google.com/...,&#10;https://script.google.com/..."></textarea>
-                        <small class="hint" data-i18n="hint.endpoints">Separate multiple URLs with commas.</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="auth-key">
-                            <span data-i18n="label.authKey">Auth Key</span>
-                            <span class="help-icon" data-i18n-title="help.authKey" title="Secret key used for authenticating with your Apps Script relay. Must match across all components.">?</span>
-                        </label>
-                        <div class="input-with-action">
-                            <input type="password" id="auth-key" name="auth-key" data-testid="input-key">
-                            <button type="button" id="toggleAuthVisible" class="icon-btn" data-testid="btn-toggle-key-visibility">👁️</button>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="listen">
-                                <span data-i18n="label.listen">HTTP/HTTPS Listen Address</span>
-                                <span class="help-icon" data-i18n-title="help.listen" title="The local IP and port where Zyrln will listen for connections (default 127.0.0.1:8085).">?</span>
+                <form id="configForm" class="config-form" data-testid="config-form">
+                    <div class="config-section-group profile-config-group">
+<div class="form-group">
+                            <label>
+                                <span data-i18n="label.endpoints">Relay Endpoints</span>
+                                <span class="help-icon" data-i18n-title="help.endpoints" title="One or more Google Apps Script URLs. Failover happens automatically if one fails.">?</span>
                             </label>
-                            <input type="text" id="listen" name="listen" data-testid="input-listen" placeholder="127.0.0.1:8085">
+                            <input type="hidden" id="fronted-appscript-url" name="fronted-appscript-url" data-testid="input-url">
+                            <div id="urlRows" class="url-rows"></div>
+                            <button type="button" id="addUrlRowBtn" class="add-url-row-btn">
+                                <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+                                <span data-i18n="button.addRelay">Add relay</span>
+                            </button>
                         </div>
                         <div class="form-group">
-                            <label for="socks-listen">
-                                <span data-i18n="label.socksListen">SOCKS5 Address</span>
-                                <span class="help-icon" data-i18n-title="help.socksListen" title="The local IP and port where the SOCKS5 listener accepts connections (default 127.0.0.1:1080).">?</span>
+                            <label for="auth-key">
+                                <span data-i18n="label.authKey">Auth Key</span>
+                                <span class="help-icon" data-i18n-title="help.authKey" title="Secret key used for authenticating with your Apps Script relay. Must match across all components.">?</span>
                             </label>
-                            <input type="text" id="socks-listen" name="socks-listen" data-testid="input-socks-listen" placeholder="127.0.0.1:1080">
+                            <div class="input-with-action">
+                                <input type="password" id="auth-key" name="auth-key" data-testid="input-key">
+                                <button type="button" id="toggleAuthVisible" class="icon-btn" data-testid="btn-toggle-key-visibility">👁️</button>
+                            </div>
                         </div>
                     </div>
-                    <button type="submit" class="save-btn" data-testid="save-config-btn" data-i18n="button.save">Save Changes</button>
+<div class="save-btn-row">
+                        <button type="submit" class="save-btn icon-only" data-testid="save-config-btn" data-i18n-title="button.save" aria-label="Save settings">
+                            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"></path><path d="M17 21v-8H7v8"></path><path d="M7 3v5h8"></path></svg>
+                        </button>
+                    </div>
                 </form>
             </section>
 
             <!-- Middle: Tools & Actions -->
             <section class="card tools-section">
                 <div class="card-header">
-                    <h2 data-i18n="section.tools">🛠️ Tools & Diagnostics</h2>
+                    <h2 data-i18n="section.tools">Tools</h2>
                 </div>
                 <div class="tools-list">
                     <div class="tool-item">
@@ -84,34 +113,39 @@
                             <h3 data-i18n="tool.diagnostics">Diagnostics</h3>
                             <p data-i18n="tool.diagnosticsDesc">Verify relay chain reachability</p>
                         </div>
-                        <button id="runProbesBtn" class="action-btn" data-testid="btn-run-diagnostics" data-i18n="button.runTest">Run Test</button>
+                        <button id="runProbesBtn" class="action-btn icon-only" data-testid="btn-run-diagnostics" data-i18n-title="button.runTest" aria-label="Run relay check">
+                            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 3 14 9-14 9V3Z"></path></svg>
+                        </button>
                     </div>
                     <div class="tool-item">
                         <div class="tool-info">
                             <h3 data-i18n="tool.android">Android Sync</h3>
                             <p data-i18n="tool.androidDesc">Export for mobile app</p>
                         </div>
-                        <button id="exportMobileBtn" class="action-btn" data-testid="btn-export-json" data-i18n="button.export">Export</button>
+                        <button id="exportMobileBtn" class="action-btn icon-only" data-testid="btn-export-json" data-i18n-title="button.export" aria-label="Export mobile config">
+                            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>
+                        </button>
                     </div>
+                    <div class="tool-item">
+                        <div class="tool-info">
+                            <h3 data-i18n="tool.ping">Ping</h3>
+                            <p id="pingResult" data-i18n="tool.pingDesc">Measure relay round-trip time</p>
+                        </div>
+                        <button id="pingBtn" class="action-btn icon-only" data-i18n-title="button.ping" aria-label="Ping relay">
+                            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49"/><path d="M7.76 16.24a6 6 0 0 1 0-8.49"/><path d="M20.07 3.93a10 10 0 0 1 0 14.14"/><path d="M3.93 20.07a10 10 0 0 1 0-14.14"/></svg>
+                        </button>
+                    </div>
+
                     <div class="tool-item">
                         <div class="tool-info">
                             <h3 data-i18n="tool.security">Security</h3>
                             <p data-i18n="tool.securityDesc">Manage CA certificates</p>
                         </div>
                         <div class="button-group">
-                            <button type="button" id="btnRegenCA" class="action-btn" data-testid="btn-init-ca" data-i18n="button.installCert" data-i18n-title="help.cert" title="Generate and download the CA certificate">Install Certificate</button>
+                            <button type="button" id="btnRegenCA" class="action-btn icon-only" data-testid="btn-init-ca" data-i18n-title="button.installCert" aria-label="Install certificate">
+                                <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.7 8.8a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1v7Z"></path><path d="m9 12 2 2 4-4"></path></svg>
+                            </button>
                         </div>
-                    </div>
-                </div>
-                
-                <div class="stats-mini">
-                    <div class="mini-stat">
-                        <span class="label" data-i18n="stat.uptime">Uptime</span>
-                        <span class="value" id="uptimeValue">00:00:00</span>
-                    </div>
-                    <div class="mini-stat">
-                        <span class="label" data-i18n="stat.requests">Requests</span>
-                        <span class="value" id="requestCount">0</span>
                     </div>
                 </div>
             </section>
@@ -120,15 +154,18 @@
             <section class="card log-section">
                 <div class="card-header">
                     <div class="log-title">
-                        <h2 data-i18n="section.monitor">📜 Live Monitor</h2>
                         <div class="log-filter-container">
                             <input type="text" id="logFilter" class="input-log" data-i18n-placeholder="placeholder.filter" placeholder="Filter logs..." data-testid="input-log-filter">
                         </div>
                     </div>
-                    <button id="clearLogsBtn" class="text-btn" data-i18n="button.clearLogs">Clear Logs</button>
+                    <button id="exportLogsBtn" class="text-btn icon-only" data-i18n-title="button.exportLogs" aria-label="Export logs">
+                        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><path d="M16 6l-4-4-4 4"></path><path d="M12 2v13"></path></svg>
+                    </button>
+                    <button id="clearLogsBtn" class="text-btn icon-only" data-i18n-title="button.clearLogs" aria-label="Clear logs">
+                        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
+                    </button>
                 </div>
                 <div id="logOutput" class="log-viewport" data-testid="log-viewport">
-                    <div class="log-entry system">System initialized. Ready for connection.</div>
                 </div>
             </section>
         </main>
@@ -139,25 +176,37 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="modalTitle" data-i18n="modal.exportTitle">Export Configuration</h2>
-                <button id="closeModal" class="close-btn">&times;</button>
+                <button id="closeModal" class="close-btn" data-i18n-title="button.close" aria-label="Close">
+                    <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                </button>
             </div>
             <div class="modal-body">
                 <p id="modalDescription" data-i18n="modal.exportDesc">Copy this JSON into your Android app:</p>
                 <textarea id="modalTextArea" readonly></textarea>
             </div>
             <div class="modal-footer">
-                <button id="modalActionBtn" class="primary-btn" data-i18n="button.copyClose">Copy & Close</button>
+                <button id="modalActionBtn" class="primary-btn icon-only" data-i18n-title="button.copyClose" aria-label="Copy and close">
+                    <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- Progress Indicator (Non-blocking) -->
-    <div id="progressIndicator" class="progress-indicator">
-        <div class="progress-bar">
-            <div id="progressFill" class="progress-fill"></div>
-        </div>
-        <div class="progress-text-container">
-            <span id="progressText" data-i18n="progress.processing">Processing...</span>
+    <!-- Profile Name Modal -->
+    <div id="profileNameOverlay" class="modal-overlay">
+        <div class="modal-content profile-name-modal">
+            <div class="modal-header">
+                <h2 data-i18n="prompt.profileName">Profile name</h2>
+                <button id="closeProfileNameModal" class="close-btn" aria-label="Close">
+                    <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="profileNameInput" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="modal-footer">
+                <button id="profileNameConfirm" class="primary-btn" data-i18n="button.save">Save</button>
+            </div>
         </div>
     </div>
 

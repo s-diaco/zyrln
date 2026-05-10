@@ -42,4 +42,8 @@
     <string name="btn_open_settings">باز کردن تنظیمات</string>
     <string name="btn_later">بعداً</string>
     <string name="dialog_ca_reinstall_message">یک گواهینامه جدید ایجاد شد. شما حتماً باید اکنون آن را در تنظیمات گوشی (Security > Install from storage) مجدداً نصب کنید تا HTTPS کار کند.</string>
+    <string name="label_uptime">زمان فعالیت</string>
+    <string name="log_title">لاگ زنده</string>
+    <string name="log_share_subject">لاگ دیباگ زیرلن</string>
+    <string name="log_empty">هنوز لاگی برای اشتراک‌گذاری وجود ندارد.</string>
 </resources>

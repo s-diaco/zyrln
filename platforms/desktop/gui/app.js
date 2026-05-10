@@ -1,46 +1,50 @@
 document.addEventListener('DOMContentLoaded', () => {
     const translations = {
         en: {
-            'status.disconnected': 'Disconnected',
             'app.title': 'Zyrln Control Center',
             'brand.name': 'ZYRLN',
-            'status.running': 'Running',
-            'status.unavailable': 'Status unavailable',
             'button.connect': 'Connect',
             'button.disconnect': 'Disconnect',
-            'section.config': 'Configuration',
-            'label.endpoints': 'Relay Endpoints (Apps Script)',
-            'help.endpoints': 'One or more Google Apps Script URLs. Commas allow automatic failover if one fails.',
-            'hint.endpoints': 'Separate multiple URLs with commas.',
+            'button.theme': 'Toggle theme',
+            'button.close': 'Close',
+            'section.config': 'Relay Profile',
+            'label.endpoints': 'Apps Script Relays',
+            'help.endpoints': 'Add one or more Apps Script relay URLs. Commas let Zyrln fail over automatically.',
             'label.authKey': 'Auth Key',
-            'help.authKey': 'Secret key used for authenticating with your Apps Script relay. Must match across all components.',
-            'label.listen': 'HTTP/HTTPS Listen Address',
-            'help.listen': 'The local IP and port where Zyrln will listen for connections (default 127.0.0.1:8085).',
-            'label.socksListen': 'SOCKS5 Address',
-            'help.socksListen': 'The local IP and port where the SOCKS5 listener accepts connections (default 127.0.0.1:1080).',
-            'button.save': 'Save Changes',
-            'section.tools': 'Tools & Diagnostics',
-            'tool.diagnostics': 'Diagnostics',
-            'tool.diagnosticsDesc': 'Verify relay chain reachability',
-            'button.runTest': 'Run Test',
-            'tool.android': 'Android Sync',
-            'tool.androidDesc': 'Export for mobile app',
+            'help.authKey': 'Secret key for your Apps Script relay. Use the same key on every Zyrln component.',
+            'label.listen': 'HTTP',
+            'help.listen': 'Local address browsers can use for HTTP and HTTPS traffic.',
+            'label.socksListen': 'SOCKS5',
+            'help.socksListen': 'Local address apps can use for SOCKS5 traffic.',
+            'prompt.profileName': 'Profile name',
+            'button.save': 'Save Settings',
+            'button.addRelay': 'Add relay',
+            'button.addProfile': 'Add Profile',
+            'button.deleteProfile': 'Delete',
+            'section.tools': 'Tools',
+            'tool.diagnostics': 'Relay Check',
+            'tool.diagnosticsDesc': 'Test the saved relay path',
+            'button.runTest': 'Run',
+            'tool.android': 'Mobile Export',
+            'tool.androidDesc': 'Create Android import JSON',
             'button.export': 'Export',
-            'tool.security': 'Security',
-            'tool.securityDesc': 'Manage CA certificates',
+            'tool.ping': 'Ping',
+            'tool.pingDesc': 'Measure relay round-trip time',
+            'button.ping': 'Ping',
+            'tool.security': 'Certificate',
+            'tool.securityDesc': 'Create the local CA file',
             'button.installCert': 'Install Certificate',
-            'help.cert': 'Generate and download the CA certificate',
+            'help.cert': 'Generate and download the CA certificate.',
             'stat.uptime': 'Uptime',
             'stat.requests': 'Requests',
-            'section.monitor': 'Live Monitor',
             'placeholder.filter': 'Filter logs...',
             'button.clearLogs': 'Clear Logs',
+            'button.exportLogs': 'Export Logs',
             'log.initial': 'System initialized. Ready for connection.',
             'modal.exportTitle': 'Export Configuration',
             'modal.exportDesc': 'Copy this JSON into your Android app:',
             'modal.mobileSync': 'Mobile Sync',
             'button.copyClose': 'Copy & Close',
-            'progress.processing': 'Processing...',
             'progress.saving': 'Saving configuration...',
             'progress.starting': 'Starting HTTP and SOCKS5 listeners...',
             'progress.stopping': 'Stopping proxy...',
@@ -48,20 +52,22 @@ document.addEventListener('DOMContentLoaded', () => {
             'progress.export': 'Generating export data...',
             'progress.cert': 'Generating certificate...',
             'toast.configSaved': 'Configuration saved',
+            'toast.profileSaved': 'Profile saved',
+            'toast.profileLoaded': 'Profile loaded',
+            'toast.profileDeleted': 'Profile deleted',
             'toast.saveFailed': 'Save failed',
             'toast.saveError': 'Error saving configuration',
             'toast.configIncomplete': 'Saved configuration incomplete',
-            'toast.proxyStarted': 'Proxy started',
-            'toast.proxyStopped': 'Proxy stopped',
             'toast.actionFailed': 'Action failed',
             'toast.exportFailed': 'Export failed',
             'toast.certReady': 'Certificate Ready',
             'toast.copied': 'Copied to clipboard!',
             'log.configLoaded': 'Configuration loaded from config.env',
             'log.configUpdated': 'Configuration updated.',
+            'log.profileLoaded': 'Profile loaded: {name}',
+            'log.profileSaved': 'Profile saved: {name}',
+            'log.profileDeleted': 'Profile deleted.',
             'log.cannotStart': 'Cannot start proxy: saved relay endpoint, auth key, and listen addresses are required.',
-            'log.proxyStarted': 'Proxy started: HTTP on {listen}, SOCKS5 on {socksListen}',
-            'log.proxyStopped': 'Proxy stopped.',
             'log.diagnosticsComplete': 'Diagnostics complete.',
             'log.diagnosticsFailed': 'Diagnostics failed: {error}',
             'log.exported': 'Exported mobile configuration to modal.',
@@ -72,45 +78,49 @@ document.addEventListener('DOMContentLoaded', () => {
             'log.certDownloaded': 'Certificate downloaded to your standard folder.'
         },
         fa: {
-            'status.disconnected': 'قطع است',
             'app.title': 'مرکز کنترل زیرلن',
             'brand.name': 'زیرلن',
-            'status.running': 'در حال اجرا',
-            'status.unavailable': 'وضعیت در دسترس نیست',
             'button.connect': 'اتصال',
             'button.disconnect': 'قطع اتصال',
-            'section.config': 'پیکربندی',
-            'label.endpoints': 'آدرس‌های رله (Apps Script)',
-            'help.endpoints': 'یک یا چند آدرس Google Apps Script. چند آدرس را با کاما جدا کنید.',
-            'hint.endpoints': 'برای چند آدرس، آن‌ها را با کاما جدا کنید.',
+            'button.theme': 'تغییر پوسته',
+            'button.close': 'بستن',
+            'section.config': 'تنظیم اتصال',
+            'label.endpoints': 'رله‌های Apps Script',
+            'help.endpoints': 'یک یا چند آدرس رله Apps Script اضافه کنید. با کاما، زیرلن در صورت خطا خودکار سراغ بعدی می‌رود.',
             'label.authKey': 'کلید احراز هویت',
-            'help.authKey': 'کلید محرمانه برای اتصال به رله Apps Script. باید در همه بخش‌ها یکسان باشد.',
-            'label.listen': 'آدرس HTTP/HTTPS',
-            'help.listen': 'آی‌پی و پورت محلی که زیرلن روی آن اتصال‌ها را می‌پذیرد. پیش‌فرض 127.0.0.1:8085 است.',
-            'label.socksListen': 'آدرس SOCKS5',
-            'help.socksListen': 'آی‌پی و پورت محلی که شنونده SOCKS5 روی آن اتصال‌ها را می‌پذیرد. پیش‌فرض 127.0.0.1:1080 است.',
-            'button.save': 'ذخیره تغییرات',
-            'section.tools': 'ابزارها و عیب‌یابی',
-            'tool.diagnostics': 'عیب‌یابی',
-            'tool.diagnosticsDesc': 'بررسی دسترسی زنجیره رله',
-            'button.runTest': 'اجرای تست',
-            'tool.android': 'همگام‌سازی اندروید',
-            'tool.androidDesc': 'خروجی برای اپ موبایل',
+            'help.authKey': 'کلید محرمانه رله Apps Script. همین کلید باید در همه بخش‌های زیرلن استفاده شود.',
+            'label.listen': 'HTTP',
+            'help.listen': 'آدرس محلی که مرورگر برای ترافیک HTTP و HTTPS استفاده می‌کند.',
+            'label.socksListen': 'SOCKS5',
+            'help.socksListen': 'آدرس محلی که برنامه‌ها برای ترافیک SOCKS5 استفاده می‌کنند.',
+            'prompt.profileName': 'نام پروفایل',
+            'button.save': 'ذخیره تنظیمات',
+            'button.addRelay': 'افزودن رله',
+            'button.addProfile': 'افزودن پروفایل',
+            'button.deleteProfile': 'حذف',
+            'section.tools': 'ابزارها',
+            'tool.diagnostics': 'بررسی رله',
+            'tool.diagnosticsDesc': 'تست مسیر رله ذخیره‌شده',
+            'button.runTest': 'اجرا',
+            'tool.android': 'خروجی موبایل',
+            'tool.androidDesc': 'ساخت JSON برای وارد کردن در اندروید',
             'button.export': 'خروجی',
-            'tool.security': 'امنیت',
-            'tool.securityDesc': 'مدیریت گواهینامه CA',
+            'tool.ping': 'پینگ',
+            'tool.pingDesc': 'اندازه‌گیری زمان رفت‌وبرگشت رله',
+            'button.ping': 'پینگ',
+            'tool.security': 'گواهینامه',
+            'tool.securityDesc': 'ساخت فایل CA محلی',
             'button.installCert': 'نصب گواهینامه',
             'help.cert': 'ساخت و دانلود گواهینامه CA',
             'stat.uptime': 'زمان اجرا',
             'stat.requests': 'درخواست‌ها',
-            'section.monitor': 'مانیتور زنده',
             'placeholder.filter': '...فیلتر لاگ‌ها',
             'button.clearLogs': 'پاک کردن لاگ‌ها',
+            'button.exportLogs': 'دانلود لاگ',
             'modal.exportTitle': 'خروجی پیکربندی',
             'modal.exportDesc': 'این JSON را در اپ اندروید وارد کنید:',
             'modal.mobileSync': 'همگام‌سازی موبایل',
             'button.copyClose': 'کپی و بستن',
-            'progress.processing': 'در حال پردازش...',
             'progress.saving': 'در حال ذخیره پیکربندی...',
             'progress.starting': 'در حال شروع شنونده‌های HTTP و SOCKS5...',
             'progress.stopping': 'در حال توقف پروکسی...',
@@ -118,11 +128,12 @@ document.addEventListener('DOMContentLoaded', () => {
             'progress.export': 'در حال ساخت خروجی...',
             'progress.cert': 'در حال ساخت گواهینامه...',
             'toast.configSaved': 'پیکربندی ذخیره شد',
+            'toast.profileSaved': 'پروفایل ذخیره شد',
+            'toast.profileLoaded': 'پروفایل فعال شد',
+            'toast.profileDeleted': 'پروفایل حذف شد',
             'toast.saveFailed': 'ذخیره ناموفق بود',
             'toast.saveError': 'خطا در ذخیره پیکربندی',
             'toast.configIncomplete': 'پیکربندی ذخیره‌شده کامل نیست',
-            'toast.proxyStarted': 'پروکسی شروع شد',
-            'toast.proxyStopped': 'پروکسی متوقف شد',
             'toast.actionFailed': 'عملیات ناموفق بود',
             'toast.exportFailed': 'خروجی ناموفق بود',
             'toast.certReady': 'گواهینامه آماده است',
@@ -161,62 +172,239 @@ document.addEventListener('DOMContentLoaded', () => {
     const normalizeLogMessage = (msg) => legacyPersianLogs.get(msg) || msg;
 
     // State management
+    let proxyLogSeq = 0;
+
     window.__ZYRLN_STATE__ = {
         running: false,
         uptime: '00:00:00',
         logs: [],
         probesRunning: false,
-        lastSavedConfig: {}
+        lastSavedConfig: {},
+        profiles: [],
+        activating: false,
+        version: '',
+        os: '',
+        arch: ''
     };
 
     // DOM Elements
     const configForm = document.getElementById('configForm');
     const toggleProxyBtn = document.getElementById('toggleProxyBtn');
-    const proxyStatusIndicator = document.getElementById('proxyStatusIndicator');
-    const proxyStatusText = document.getElementById('proxyStatusText');
     const logOutput = document.getElementById('logOutput');
     const clearLogsBtn = document.getElementById('clearLogsBtn');
+    const exportLogsBtn = document.getElementById('exportLogsBtn');
     const btnRegenCA = document.getElementById('btnRegenCA');
     const runProbesBtn = document.getElementById('runProbesBtn');
     const exportMobileBtn = document.getElementById('exportMobileBtn');
+    const pingBtn = document.getElementById('pingBtn');
+    const pingResult = document.getElementById('pingResult');
     const logFilter = document.getElementById('logFilter');
     const toggleAuthVisible = document.getElementById('toggleAuthVisible');
     const authKeyInput = document.getElementById('auth-key');
     const languageToggleBtn = document.getElementById('languageToggleBtn');
     const themeToggleBtn = document.getElementById('themeToggleBtn');
+    const addProfileBtn = document.getElementById('addProfileBtn');
+    const deleteProfileBtn = document.getElementById('deleteProfileBtn');
+    const profilePanel = document.querySelector('.profile-actions');
+    const configSection = document.querySelector('.config-section');
+
+    // Custom select state
+    const profileSelectWrapper = document.getElementById('profileSelectWrapper');
+    const profileSelectTrigger = document.getElementById('profileSelectTrigger');
+    const profileSelectLabel = document.getElementById('profileSelectLabel');
+    const profileSelectDropdown = document.getElementById('profileSelectDropdown');
+    let profileSelectValue = '';
+
+    // URL Rows — replaces the textarea for fronted-appscript-url
+    const urlRowsContainer = document.getElementById('urlRows');
+    const urlHiddenInput = document.getElementById('fronted-appscript-url');
+    const addUrlRowBtn = document.getElementById('addUrlRowBtn');
+
+    function syncUrlHidden() {
+        const vals = [...urlRowsContainer.querySelectorAll('.url-row-input')]
+            .map(i => i.value.trim()).filter(Boolean);
+        urlHiddenInput.value = vals.join(',');
+        validateInputs();
+    }
+
+    function addUrlRow(value = '') {
+        const row = document.createElement('div');
+        row.className = 'url-row';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'url-row-input';
+        input.placeholder = 'https://script.google.com/macros/s/.../exec';
+        input.value = value;
+        input.autocomplete = 'off';
+        input.spellcheck = false;
+        input.addEventListener('input', syncUrlHidden);
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'url-row-remove';
+        removeBtn.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>';
+        removeBtn.addEventListener('click', () => {
+            row.remove();
+            syncUrlHidden();
+            // Always keep at least one row
+            if (urlRowsContainer.querySelectorAll('.url-row').length === 0) addUrlRow();
+        });
+        row.appendChild(input);
+        row.appendChild(removeBtn);
+        urlRowsContainer.appendChild(row);
+        syncUrlHidden();
+        return input;
+    }
+
+    function setUrlRows(commaValue) {
+        urlRowsContainer.innerHTML = '';
+        const urls = (commaValue || '').split(',').map(s => s.trim()).filter(Boolean);
+        if (urls.length === 0) {
+            addUrlRow();
+        } else {
+            urls.forEach(u => addUrlRow(u));
+        }
+    }
+
+    addUrlRowBtn.addEventListener('click', () => {
+        const input = addUrlRow();
+        input.focus();
+    });
+
+    // Mimic native select API used throughout the code
+    const profileSelect = {
+        get value() { return profileSelectValue; },
+        set value(v) {
+            profileSelectValue = v;
+            const opt = [...profileSelectDropdown.querySelectorAll('li')].find(li => li.dataset.value === v);
+            profileSelectLabel.textContent = opt ? opt.textContent : '—';
+            profileSelectDropdown.querySelectorAll('li').forEach(li =>
+                li.classList.toggle('selected', li.dataset.value === v));
+        },
+        get disabled() { return profileSelectWrapper.classList.contains('disabled'); },
+        set disabled(v) { profileSelectWrapper.classList.toggle('disabled', v); },
+        get options() { return profileSelectDropdown.querySelectorAll('li'); },
+        addEventListener(evt, fn) {
+            if (evt === 'change') profileSelectWrapper._changeHandlers = (profileSelectWrapper._changeHandlers || []).concat(fn);
+        }
+    };
+
+    // Initialize URL rows after profileSelect is defined
+    setUrlRows('');
+
+    profileSelectTrigger.addEventListener('click', () => {
+        if (profileSelectWrapper.classList.contains('disabled')) return;
+        profileSelectWrapper.classList.toggle('open');
+        profileSelectTrigger.setAttribute('aria-expanded', profileSelectWrapper.classList.contains('open'));
+    });
+
+    profileSelectDropdown.addEventListener('click', (e) => {
+        const li = e.target.closest('li');
+        if (!li) return;
+        profileSelect.value = li.dataset.value;
+        profileSelectWrapper.classList.remove('open');
+        profileSelectTrigger.setAttribute('aria-expanded', 'false');
+        (profileSelectWrapper._changeHandlers || []).forEach(fn => fn());
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!profileSelectWrapper.contains(e.target)) {
+            profileSelectWrapper.classList.remove('open');
+            profileSelectTrigger.setAttribute('aria-expanded', 'false');
+        }
+    });
 
     // UI Feedback Elements
-    const progressIndicator = document.getElementById('progressIndicator');
-    const progressText = document.getElementById('progressText');
+    let _loadingToast = null;
 
     // Modal Elements
     const modalOverlay = document.getElementById('modalOverlay');
     const modalTextArea = document.getElementById('modalTextArea');
     const modalActionBtn = document.getElementById('modalActionBtn');
     const closeModal = document.getElementById('closeModal');
+    const iconSVG = {
+        sun: '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.9 4.9 1.4 1.4"></path><path d="m17.7 17.7 1.4 1.4"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.3 17.7-1.4 1.4"></path><path d="m19.1 4.9-1.4 1.4"></path></svg>',
+        moon: '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.9 13.5A8.5 8.5 0 0 1 10.5 3.1 7 7 0 1 0 20.9 13.5Z"></path></svg>'
+    };
 
     // Config Management
-    async function loadConfig() {
+    async function loadConfig(silent = false) {
         try {
             const response = await fetch('/api/config');
             const config = await response.json();
             window.__ZYRLN_STATE__.lastSavedConfig = config;
             for (const [key, value] of Object.entries(config)) {
-                const input = document.getElementById(key);
-                if (input) input.value = value;
+                if (key === 'fronted-appscript-url') {
+                    setUrlRows(value);
+                } else {
+                    const input = document.getElementById(key);
+                    if (input) input.value = value;
+                }
             }
-            showLog(tLog('log.configLoaded'));
+            if (!silent) showLog(tLog('log.configLoaded'));
             validateInputs();
+            await loadProfiles();
         } catch (err) {
             showLog(`Error loading config: ${err.message}`, 'error');
         }
     }
 
+    async function loadProfiles() {
+        try {
+            const response = await fetch('/api/profiles');
+            const profiles = await response.json();
+            window.__ZYRLN_STATE__.profiles = Array.isArray(profiles) ? profiles : [];
+            renderProfiles();
+        } catch (err) {
+            showLog(`Error loading profiles: ${err.message}`, 'error');
+        }
+    }
+
+    function currentFormConfig() {
+        const formData = new FormData(configForm);
+        const cfg = Object.fromEntries(formData.entries());
+        // listen inputs live outside the form (in the header)
+        const listenEl = document.getElementById('listen');
+        const socksEl = document.getElementById('socks-listen');
+        if (listenEl) cfg['listen'] = listenEl.value;
+        if (socksEl) cfg['socks-listen'] = socksEl.value;
+        return cfg;
+    }
+
+    function currentProfileConfig() {
+        const config = currentFormConfig();
+        return {
+            'fronted-appscript-url': config['fronted-appscript-url'] || '',
+            'auth-key': config['auth-key'] || ''
+        };
+    }
+
+    function renderProfiles() {
+        const selected = profileSelectValue;
+        profileSelectDropdown.innerHTML = '';
+
+        window.__ZYRLN_STATE__.profiles.forEach(profile => {
+            const li = document.createElement('li');
+            li.dataset.value = profile.id;
+            li.textContent = profile.name || 'Profile';
+            profileSelectDropdown.appendChild(li);
+        });
+
+        const items = [...profileSelectDropdown.querySelectorAll('li')];
+        const stillExists = items.some(li => li.dataset.value === selected);
+        if (stillExists) {
+            profileSelect.value = selected;
+        } else if (items.length > 0) {
+            profileSelect.value = items[0].dataset.value;
+        } else {
+            profileSelect.value = '';
+        }
+        validateInputs();
+    }
+
     configForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         showProgress(t('progress.saving'));
-        const formData = new FormData(configForm);
-        const data = Object.fromEntries(formData.entries());
+        const data = currentFormConfig();
 
         try {
             const response = await fetch('/api/config', {
@@ -227,8 +415,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.ok) {
                 window.__ZYRLN_STATE__.lastSavedConfig = data;
+                // If a profile is selected, sync its stored config so switching away/back doesn't revert edits
+                if (profileSelect.value) {
+                    const currentProfile = selectedProfile();
+                    const pConfig = { 'fronted-appscript-url': data['fronted-appscript-url'] || '', 'auth-key': data['auth-key'] || '' };
+                    await fetch('/api/profiles', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: profileSelect.value, name: currentProfile?.name || '', config: pConfig })
+                    });
+                    await loadProfiles();
+                }
                 showToast(t('toast.configSaved'));
                 showLog(tLog('log.configUpdated'));
+                playMotion(configForm, 'motion-confirm');
                 validateInputs();
             } else {
                 const errText = await response.text();
@@ -243,8 +443,153 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    const profileNameOverlay = document.getElementById('profileNameOverlay');
+    const profileNameInput = document.getElementById('profileNameInput');
+    const profileNameConfirm = document.getElementById('profileNameConfirm');
+    const closeProfileNameModal = document.getElementById('closeProfileNameModal');
+
+    function promptProfileName(suggested) {
+        return new Promise((resolve) => {
+            profileNameInput.value = suggested;
+            profileNameOverlay.classList.add('active');
+            profileNameInput.focus();
+            profileNameInput.select();
+
+            const finish = (value) => {
+                profileNameOverlay.classList.remove('active');
+                profileNameConfirm.removeEventListener('click', onConfirm);
+                closeProfileNameModal.removeEventListener('click', onCancel);
+                profileNameInput.removeEventListener('keydown', onKey);
+                resolve(value);
+            };
+            const onConfirm = () => finish(profileNameInput.value.trim() || suggested);
+            const onCancel = () => finish(null);
+            const onKey = (e) => {
+                if (e.key === 'Enter') finish(profileNameInput.value.trim() || suggested);
+                if (e.key === 'Escape') finish(null);
+            };
+            profileNameConfirm.addEventListener('click', onConfirm);
+            closeProfileNameModal.addEventListener('click', onCancel);
+            profileNameInput.addEventListener('keydown', onKey);
+        });
+    }
+
+    async function saveProfile() {
+        if (window.__ZYRLN_STATE__.running) return;
+        const config = currentProfileConfig();
+        const suggested = profileNameFromConfig(config);
+        const name = await promptProfileName(suggested);
+        if (name === null) return;
+
+        showProgress(t('progress.saving'));
+        try {
+            const response = await fetch('/api/profiles', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: '',
+                    name,
+                    config
+                })
+            });
+            if (!response.ok) throw new Error(await response.text());
+            const profile = await response.json();
+            showToast(t('toast.profileSaved'));
+            showLog(tLog('log.profileSaved', { name: profile.name || 'Profile' }));
+            await loadProfiles();
+            profileSelect.value = profile.id;
+            playMotion(profilePanel, 'motion-confirm');
+            playMotion(profileSelectWrapper, 'motion-select');
+        } catch (err) {
+            showToast(`${t('toast.saveFailed')}: ${err.message}`, 'error');
+            showLog(`Profile save failed: ${err.message}`, 'error');
+        } finally {
+            hideProgress();
+        }
+    }
+
+    addProfileBtn.addEventListener('click', async () => {
+        await saveProfile();
+    });
+
+    async function activateSelectedProfile(silent = false) {
+        if (window.__ZYRLN_STATE__.running || !profileSelect.value) return;
+        const profile = selectedProfile();
+        window.__ZYRLN_STATE__.activating = true;
+        validateInputs();
+        if (!silent) showProgress(t('progress.saving'));
+        try {
+            const response = await fetch('/api/profiles/activate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: profileSelect.value })
+            });
+            if (!response.ok) throw new Error(await response.text());
+            await loadConfig(silent);
+            profileSelect.value = profile?.id || '';
+            if (!silent) {
+                showToast(t('toast.profileLoaded'));
+                showLog(tLog('log.profileLoaded', { name: profile?.name || 'Profile' }));
+                playMotion(configSection, 'motion-apply');
+                playMotion(profileSelectWrapper, 'motion-select');
+            }
+        } catch (err) {
+            showToast(`${t('toast.actionFailed')}: ${err.message}`, 'error');
+            showLog(`Profile load failed: ${err.message}`, 'error');
+        } finally {
+            window.__ZYRLN_STATE__.activating = false;
+            if (!silent) hideProgress();
+            validateInputs();
+        }
+    }
+
+    deleteProfileBtn.addEventListener('click', async () => {
+        if (window.__ZYRLN_STATE__.running || !profileSelect.value) return;
+        showProgress(t('progress.saving'));
+        try {
+            const response = await fetch(`/api/profiles?id=${encodeURIComponent(profileSelect.value)}`, {
+                method: 'DELETE'
+            });
+            if (!response.ok) throw new Error(await response.text());
+            profileSelect.value = '';
+            await loadProfiles();
+            if (window.__ZYRLN_STATE__.profiles.length === 0) {
+                // No profiles left — clear form fields
+                setUrlRows('');
+                const keyEl = document.getElementById('auth-key');
+                if (keyEl) keyEl.value = '';
+                window.__ZYRLN_STATE__.lastSavedConfig = {};
+            } else {
+                // Activate next profile silently so config.env stays in sync
+                await activateSelectedProfile(true);
+            }
+            showToast(t('toast.profileDeleted'));
+            showLog(tLog('log.profileDeleted'));
+            playMotion(profilePanel, 'motion-delete');
+        } catch (err) {
+            showToast(`${t('toast.actionFailed')}: ${err.message}`, 'error');
+            showLog(`Profile delete failed: ${err.message}`, 'error');
+        } finally {
+            hideProgress();
+        }
+    });
+
+    function selectedProfile() {
+        return window.__ZYRLN_STATE__.profiles.find(profile => profile.id === profileSelect.value);
+    }
+
+    function profileNameFromConfig(config) {
+        const raw = (config['fronted-appscript-url'] || '').split(',')[0].trim();
+        try {
+            return new URL(raw).hostname || 'Profile';
+        } catch (_) {
+            return 'Profile';
+        }
+    }
+
     // Proxy Control
     toggleProxyBtn.addEventListener('click', async () => {
+        if (window.__ZYRLN_STATE__.activating) return;
         const isRunning = window.__ZYRLN_STATE__.running;
         if (!isRunning && !hasSavedConfig()) {
             showLog(tLog('log.cannotStart'), 'error');
@@ -252,18 +597,21 @@ document.addEventListener('DOMContentLoaded', () => {
             validateInputs();
             return;
         }
+        if (!isRunning) {
+            const savedUrl = (window.__ZYRLN_STATE__.lastSavedConfig?.['fronted-appscript-url'] || '').split(',')[0].trim();
+            if (!savedUrl.startsWith('https://script.google.com/')) {
+                showLog('Relay URL is not a valid Apps Script URL — cannot connect.', 'error');
+                showToast(t('toast.configIncomplete'), 'error');
+                return;
+            }
+        }
         const endpoint = isRunning ? '/api/stop' : '/api/start';
 
         showProgress(isRunning ? t('progress.stopping') : t('progress.starting'));
-        showLog(isRunning ? tLog('progress.stopping') : tLog('progress.starting'));
         try {
             const response = await fetch(endpoint, { method: 'POST' });
             if (response.ok) {
-                showLog(isRunning ? `✅ ${tLog('log.proxyStopped')}` : `✅ ${tLog('log.proxyStarted', {
-                    listen: document.getElementById('listen').value || '127.0.0.1:8085',
-                    socksListen: document.getElementById('socks-listen').value || '127.0.0.1:1080'
-                })}`);
-                showToast(isRunning ? t('toast.proxyStopped') : t('toast.proxyStarted'));
+                playMotion(toggleProxyBtn, isRunning ? 'motion-soft' : 'motion-confirm');
                 updateStatus();
                 validateInputs();
             } else {
@@ -282,16 +630,28 @@ document.addEventListener('DOMContentLoaded', () => {
     runProbesBtn.addEventListener('click', async () => {
         if (window.__ZYRLN_STATE__.probesRunning) return;
 
+        const savedUrl = (window.__ZYRLN_STATE__.lastSavedConfig?.['fronted-appscript-url'] || '').trim();
+        const firstUrl = savedUrl.split(',')[0].trim();
+        if (!firstUrl.startsWith('https://script.google.com/')) {
+            showLog('Relay URL is not a valid Apps Script URL — diagnostics aborted.', 'error');
+            showToast(t('toast.actionFailed'), 'error');
+            return;
+        }
+
         window.__ZYRLN_STATE__.probesRunning = true;
+        setButtonDisabled(runProbesBtn, true);
         showProgress(t('progress.diagnostics'));
         showLog(tLog('progress.diagnostics'));
 
         try {
             const response = await fetch('/api/probes');
+            if (!response.ok) throw new Error(await response.text());
             const results = await response.json();
+            if (!Array.isArray(results)) throw new Error('Unexpected response');
             results.forEach(r => {
+                const name = r.probe?.name || r.id || 'probe';
                 const status = r.ok ? 'OK' : 'FAIL';
-                showLog(`${r.probe.name}: ${status} (${r.duration_ms}ms)`, r.ok ? 'info' : 'error');
+                showLog(`${name}: ${status} (${r.duration_ms}ms)`, r.ok ? 'info' : 'error');
             });
             showLog(tLog('log.diagnosticsComplete'));
         } catch (err) {
@@ -299,6 +659,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             window.__ZYRLN_STATE__.probesRunning = false;
             hideProgress();
+            validateInputs();
         }
     });
 
@@ -306,15 +667,39 @@ document.addEventListener('DOMContentLoaded', () => {
         showProgress(t('progress.export'));
         try {
             const response = await fetch('/api/export');
+            if (!response.ok) throw new Error(await response.text());
             const config = await response.json();
             const jsonStr = JSON.stringify(config, null, 2);
-
             openModal(t('modal.mobileSync'), jsonStr);
             showLog(tLog('log.exported'));
+            playMotion(exportMobileBtn, 'motion-confirm');
         } catch (err) {
-            showToast(t('toast.exportFailed'), 'error');
+            showToast(`${t('toast.exportFailed')}: ${err.message}`, 'error');
+            showLog(`Export failed: ${err.message}`, 'error');
         } finally {
             hideProgress();
+        }
+    });
+
+    pingBtn.addEventListener('click', async () => {
+        pingResult.textContent = '…';
+        setButtonDisabled(pingBtn, true);
+        try {
+            const res = await fetch('/api/ping', { method: 'POST' });
+            const data = await res.json();
+            if (data.ok) {
+                pingResult.textContent = `${data.ms} ms`;
+                showLog(`Ping: ${data.ms} ms`, 'info');
+                playMotion(pingBtn, 'motion-confirm');
+            } else {
+                pingResult.textContent = 'failed';
+                showLog(`Ping failed: ${data.error}`, 'error');
+            }
+        } catch (err) {
+            pingResult.textContent = 'failed';
+            showLog(`Ping error: ${err.message}`, 'error');
+        } finally {
+            setButtonDisabled(pingBtn, false);
         }
     });
 
@@ -371,6 +756,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             showToast(t('toast.certReady'));
+            playMotion(btnRegenCA, 'motion-confirm');
             updateStatus();
         } catch (err) {
             console.error('Action Error:', err);
@@ -399,7 +785,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     closeModal.onclick = () => modalOverlay.classList.remove('active');
-    window.onclick = (e) => { if (e.target == modalOverlay) modalOverlay.classList.remove('active'); };
+    window.addEventListener('click', (e) => {
+        if (e.target === modalOverlay) modalOverlay.classList.remove('active');
+        if (e.target === profileNameOverlay) {
+            profileNameOverlay.classList.remove('active');
+        }
+    });
 
     modalActionBtn.onclick = async () => {
         await navigator.clipboard.writeText(modalTextArea.value);
@@ -409,12 +800,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // UI Helpers
     function showProgress(text) {
-        progressText.textContent = text;
-        progressIndicator.classList.add('active');
+        if (_loadingToast) _loadingToast.remove();
+        const container = document.getElementById('toastContainer');
+        _loadingToast = document.createElement('div');
+        _loadingToast.className = 'toast loading';
+        _loadingToast.innerHTML = `<div class="toast-spinner"></div><span>${text}</span>`;
+        container.appendChild(_loadingToast);
     }
 
     function hideProgress() {
-        progressIndicator.classList.remove('active');
+        if (_loadingToast) {
+            _loadingToast.classList.add('leaving');
+            setTimeout(() => { if (_loadingToast) { _loadingToast.remove(); _loadingToast = null; } }, 300);
+        }
     }
 
     const eyeIcon = `
@@ -460,14 +858,21 @@ document.addEventListener('DOMContentLoaded', () => {
         logOutput.scrollTop = logOutput.scrollHeight;
     }
 
-    function showToast(msg) {
+    function playMotion(el, className) {
+        if (!el) return;
+        el.classList.remove(className);
+        void el.offsetWidth;
+        el.classList.add(className);
+    }
+
+    function showToast(msg, type = 'info') {
         const container = document.getElementById('toastContainer');
         const toast = document.createElement('div');
-        toast.className = 'toast';
+        toast.className = `toast ${type}`;
         toast.textContent = msg;
         container.appendChild(toast);
         setTimeout(() => {
-            toast.style.opacity = '0';
+            toast.classList.add('leaving');
             setTimeout(() => toast.remove(), 300);
         }, 3000);
     }
@@ -483,25 +888,24 @@ document.addEventListener('DOMContentLoaded', () => {
             el.textContent = t(el.dataset.i18n);
         });
         document.querySelectorAll('[data-i18n-title]').forEach(el => {
-            el.title = t(el.dataset.i18nTitle);
+            const text = t(el.dataset.i18nTitle);
+            el.title = text;
+            el.setAttribute('aria-label', text);
         });
         document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
             el.placeholder = t(el.dataset.i18nPlaceholder);
         });
+        renderProfiles();
         updateStatusText();
     }
 
     function updateStatusText() {
-        if (window.__ZYRLN_STATE__.statusUnavailable) {
-            proxyStatusText.textContent = t('status.unavailable');
-            return;
-        }
         if (window.__ZYRLN_STATE__.running) {
-            proxyStatusText.textContent = t('status.running');
-            toggleProxyBtn.textContent = t('button.disconnect');
+            toggleProxyBtn.title = t('button.disconnect');
+            toggleProxyBtn.setAttribute('aria-label', t('button.disconnect'));
         } else {
-            proxyStatusText.textContent = t('status.disconnected');
-            toggleProxyBtn.textContent = t('button.connect');
+            toggleProxyBtn.title = t('button.connect');
+            toggleProxyBtn.setAttribute('aria-label', t('button.connect'));
         }
     }
 
@@ -510,27 +914,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/status');
             if (!response.ok) throw new Error(await response.text());
             const status = await response.json();
+            const wasRunning = window.__ZYRLN_STATE__.running;
             window.__ZYRLN_STATE__.running = status.running;
-            window.__ZYRLN_STATE__.statusUnavailable = false;
+            if (!status.running && wasRunning) proxyLogSeq = 0;
 
             if (status.running) {
-                proxyStatusIndicator.classList.add('online');
                 toggleProxyBtn.classList.add('danger');
             } else {
-                proxyStatusIndicator.classList.remove('online');
                 toggleProxyBtn.classList.remove('danger');
             }
             updateStatusText();
 
             document.getElementById('uptimeValue').textContent = status.uptime || '00:00:00';
             document.getElementById('requestCount').textContent = status.requests || '0';
+            if (status.version) window.__ZYRLN_STATE__.version = status.version;
+            if (status.os) window.__ZYRLN_STATE__.os = status.os;
+            if (status.arch) window.__ZYRLN_STATE__.arch = status.arch;
             
             // Ensure inputs are disabled/enabled based on running state
             validateInputs();
         } catch (err) {
-            window.__ZYRLN_STATE__.statusUnavailable = true;
-            proxyStatusIndicator.classList.remove('online');
-            proxyStatusText.textContent = t('status.unavailable');
             setButtonDisabled(toggleProxyBtn, true);
         }
     }
@@ -545,7 +948,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const theme = localStorage.getItem('zyrln_theme') || 'dark';
         document.body.classList.toggle('light-mode', theme === 'light');
         document.body.classList.toggle('dark-mode', theme !== 'light');
-        themeToggleBtn.textContent = theme === 'light' ? '☾' : '☀';
+        themeToggleBtn.innerHTML = theme === 'light' ? iconSVG.moon : iconSVG.sun;
     }
 
     themeToggleBtn.onclick = () => {
@@ -558,6 +961,27 @@ document.addEventListener('DOMContentLoaded', () => {
         logOutput.innerHTML = '';
         window.__ZYRLN_STATE__.logs = [];
         localStorage.removeItem('zyrln_logs');
+    };
+
+    exportLogsBtn.onclick = () => {
+        const lines = window.__ZYRLN_STATE__.logs.map(l => `[${l.time}] ${l.msg}`).join('\n');
+        if (!lines) return;
+        const s = window.__ZYRLN_STATE__;
+        const now = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+        const header = [
+            `Zyrln Desktop v${s.version || 'unknown'}`,
+            `OS: ${s.os || 'unknown'} / ${s.arch || 'unknown'}`,
+            `Time: ${now}`,
+            '---',
+            ''
+        ].join('\n');
+        const blob = new Blob([header + lines], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `zyrln-log-${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
     };
 
     // Initialize
@@ -580,31 +1004,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 el.style.opacity = isRunning ? '0.5' : '1';
             }
         });
+        urlRowsContainer.querySelectorAll('.url-row-input, .url-row-remove').forEach(el => { el.disabled = isRunning; });
+        if (addUrlRowBtn) { addUrlRowBtn.disabled = isRunning; addUrlRowBtn.style.opacity = isRunning ? '0.5' : '1'; }
+
+        // Header listen inputs live outside the form
+        document.querySelectorAll('.listen-input').forEach(el => {
+            el.disabled = isRunning;
+        });
 
         // Basic requirement: fields must not be empty
         const hasRunnableConfig = hasSavedConfig();
+        const isActivating = window.__ZYRLN_STATE__.activating;
 
-        setButtonDisabled(toggleProxyBtn, !isRunning && !hasRunnableConfig);
+        setButtonDisabled(toggleProxyBtn, isActivating || (!isRunning && !hasRunnableConfig));
 
         // These actions use saved config.env, not unsaved form edits.
-        [runProbesBtn, exportMobileBtn].forEach(btn => {
-            if (btn) {
-                setButtonDisabled(btn, !hasRunnableConfig);
-            }
-        });
+        if (runProbesBtn) setButtonDisabled(runProbesBtn, !hasRunnableConfig || window.__ZYRLN_STATE__.probesRunning);
+        if (exportMobileBtn) setButtonDisabled(exportMobileBtn, !hasRunnableConfig || isActivating);
 
         // Install Certificate is special — it only needs the server to be ready, but we'll keep it enabled
         if (btnRegenCA) {
             setButtonDisabled(btnRegenCA, false);
         }
+        profileSelect.disabled = isRunning;
+        [addProfileBtn, deleteProfileBtn].forEach(el => {
+            if (!el) return;
+            const needsSelectedProfile = el === deleteProfileBtn;
+            setButtonDisabled(el, isRunning || (needsSelectedProfile && !profileSelect.value));
+        });
     }
 
     function hasSavedConfig() {
         const config = window.__ZYRLN_STATE__.lastSavedConfig || {};
         const url = (config['fronted-appscript-url'] || '').trim();
         const key = (config['auth-key'] || '').trim();
-        const listen = (config.listen || '127.0.0.1:8085').trim();
-        return url !== '' && key !== '' && listen !== '';
+        return url !== '' && key !== '';
     }
 
     function setButtonDisabled(btn, disabled) {
@@ -618,10 +1052,45 @@ document.addEventListener('DOMContentLoaded', () => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('input', validateInputs);
     });
+    profileSelect.addEventListener('change', () => {
+        if (window.__ZYRLN_STATE__.activating) return;
+        validateInputs();
+        playMotion(profileSelectWrapper, 'motion-select');
+        activateSelectedProfile();
+    });
 
     applyTheme();
     applyLocalization();
-    loadConfig().then(validateInputs);
+    showLog(t('log.initial'), 'system');
+    loadConfig().then(() => {
+        validateInputs();
+        // Activate the auto-selected profile silently so config.env matches what's shown
+        if (profileSelect.value) activateSelectedProfile(true);
+    });
+    async function pollProxyLogs() {
+        if (!window.__ZYRLN_STATE__.running) return;
+        try {
+            const res = await fetch(`/api/logs?seq=${proxyLogSeq}`);
+            if (!res.ok) return;
+            const newSeq = parseInt(res.headers.get('X-Log-Seq') || '0', 10);
+            // Detect server restart: seq reset below our cursor — resync
+            if (newSeq < proxyLogSeq) proxyLogSeq = 0;
+            const text = await res.text();
+            if (text.trim()) {
+                text.trim().split('\n').forEach(line => {
+                    const tab = line.indexOf('\t');
+                    if (tab < 0) return;
+                    const level = line.substring(0, tab);
+                    const msg = line.substring(tab + 1);
+                    const type = level === 'error' ? 'error' : level === 'system' ? 'system' : 'info';
+                    showLog(msg, type);
+                });
+            }
+            proxyLogSeq = newSeq;
+        } catch (_) {}
+    }
+
     setInterval(updateStatus, 2000);
+    setInterval(pollProxyLogs, 500);
     updateStatus();
 });

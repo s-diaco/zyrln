@@ -167,7 +167,11 @@ type Coalescer struct {
 	maxBatch      int
 	ch            chan *coalescerItem
 	cache         *responseCache
+	stopCh        chan struct{}
+	stopOnce      sync.Once
 }
+
+const keepaliveInterval = 4 * time.Minute
 
 type coalescerItem struct {
 	method    string
@@ -211,9 +215,16 @@ func NewCoalescer(client *http.Client, appScriptURLs []string, frontDomain, auth
 		maxBatch:      20,
 		ch:            make(chan *coalescerItem, 512),
 		cache:         newResponseCache(),
+		stopCh:        make(chan struct{}),
 	}
 	go c.run()
+	go c.keepaliveLoop()
 	return c
+}
+
+// Stop shuts down the keepalive loop. Safe to call multiple times.
+func (c *Coalescer) Stop() {
+	c.stopOnce.Do(func() { close(c.stopCh) })
 }
 
 // Warmup fires a background relay request to pre-warm the Apps Script instance
@@ -222,6 +233,29 @@ func (c *Coalescer) Warmup() {
 	go func() {
 		_, _ = c.Submit("HEAD", "https://www.google.com/generate_204", map[string]string{}, nil)
 	}()
+}
+
+// keepaliveLoop sends a lightweight ping through every configured script URL
+// every keepaliveInterval to prevent Apps Script cold starts.
+func (c *Coalescer) keepaliveLoop() {
+	ticker := time.NewTicker(keepaliveInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			for _, u := range c.appScriptURLs {
+				u := u
+				go func() {
+					ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+					defer cancel()
+					payload := buildRelayPayload(c.authKey, "HEAD", "https://www.gstatic.com/generate_204", map[string]string{}, nil)
+					_, _ = tryOneURL(ctx, c.client, u, c.frontDomain, payload, 15*time.Second)
+				}()
+			}
+		case <-c.stopCh:
+			return
+		}
+	}
 }
 
 // Submit queues a relay request and blocks until the response is ready.
