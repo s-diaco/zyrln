@@ -33,12 +33,16 @@
 **برای بقیه سایت‌ها (اینستاگرام، توییتر و...):**
 ترافیک از طریق Google Apps Script هدایت می‌شود — یک سرویس رایگان گوگل. از نظر سیستم فیلترینگ، این ترافیک عادی گوگل به نظر می‌رسد. Apps Script آن را به رله خروجی شما (VPS یا Cloudflare) می‌فرستد که سایت واقعی را باز می‌کند.
 
+<div dir="ltr">
+
 ```
 یوتیوب/گوگل:    دستگاه شما ──[TLS تقسیم‌شده]──▶ گوگل (مستقیم، سرعت کامل)
 
 بقیه سایت‌ها:   دستگاه شما ──▶ Apps Script (گوگل) ──▶ VPS شما ──▶ سایت مقصد
                                از نظر فیلترینگ ترافیک گوگل است ↑
 ```
+
+</div>
 
 ---
 
@@ -74,9 +78,13 @@
 
 یک بار این دستور را اجرا کن. خروجی را جایی ذخیره کن — در هر مرحله به آن نیاز داری.
 
+<div dir="ltr">
+
 ```bash
 openssl rand -base64 32
 ```
+
+</div>
 
 مثال: `swrkwbMS1X666fjzReip+PbodKcPyDK7Xbk5gRSgRUE=`
 
@@ -88,11 +96,15 @@ openssl rand -base64 32
 2. کد پیش‌فرض را پاک کن و محتوای فایل [`relay/apps-script/Code.gs`](relay/apps-script/Code.gs) را جای‌گذاری کن
 3. سه خط اول را ویرایش کن:
 
+<div dir="ltr">
+
 ```js
 const AUTH_KEY       = "کلید-مرحله-۱";
 const EXIT_RELAY_URL = "http://آی‌پی-VPS:8787/relay";  // یا آدرس Cloudflare Worker
 const EXIT_RELAY_KEY = "";
 ```
+
+</div>
 
 4. روی **Deploy → New deployment** کلیک کن
    - Type: **Web app**
@@ -114,9 +126,15 @@ const EXIT_RELAY_KEY = "";
 3. روی **Deploy** کلیک کن و آدرس Worker را کپی کن:
    `https://worker-name.subdomain.workers.dev`
 4. برگرد به Apps Script و `EXIT_RELAY_URL` را آپدیت کن:
-   ```js
-   const EXIT_RELAY_URL = "https://worker-name.subdomain.workers.dev/relay";
-   ```
+
+<div dir="ltr">
+
+```js
+const EXIT_RELAY_URL = "https://worker-name.subdomain.workers.dev/relay";
+```
+
+</div>
+
 5. دوباره دیپلوی کن (Deploy → Manage deployments → New version)
 
 #### گزینه ب — VPS
@@ -124,6 +142,9 @@ const EXIT_RELAY_KEY = "";
 راهنمای کامل: **[docs/fa/vps-setup.md](docs/fa/vps-setup.md)**
 
 خلاصه — روی VPS:
+
+<div dir="ltr">
+
 ```bash
 # بیلد و کپی روی سرور
 GOOS=linux GOARCH=amd64 go build -o zyrln-relay ./relay/vps/main.go
@@ -135,6 +156,8 @@ ZYRLN_RELAY_KEY=
 
 ufw allow 8787/tcp
 ```
+
+</div>
 
 ### مرحله ۴ — اجرای برنامه دسکتاپ
 
@@ -177,6 +200,8 @@ ufw allow 8787/tcp
 
 نیاز به Go نسخه ۱.۲۵ به بالا دارد.
 
+<div dir="ltr">
+
 ```bash
 # باینری دسکتاپ
 make desktop
@@ -196,6 +221,8 @@ make proxy
 # تست
 make test
 ```
+
+</div>
 
 ---
 
