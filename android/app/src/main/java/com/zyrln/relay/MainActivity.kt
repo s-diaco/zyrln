@@ -216,8 +216,11 @@ class MainActivity : AppCompatActivity() {
         registerReceiver(errorReceiver, IntentFilter(RelayVpnService.ACTION_ERROR), RECEIVER_NOT_EXPORTED)
         startLogPolling()
         if (Mobile.isRunning() && activeUrl == null) {
-            activeUrl = prefs.getString("url", null)
-            activeKey = prefs.getString("key", null)
+            val savedUrl = prefs.getString("url", null)
+            if (!savedUrl.isNullOrEmpty()) {
+                activeUrl = savedUrl
+                activeKey = prefs.getString("key", null)
+            }
         }
         if (Mobile.isRunning()) resumeUptimeTicker() else stopUptimeTicker()
         updateUI(running = Mobile.isRunning())
@@ -325,6 +328,7 @@ class MainActivity : AppCompatActivity() {
             binding.bottomActions.visibility = if (running) View.GONE else View.VISIBLE
             if (!running) { binding.logOutput.text = ""; logCache.clear() }
             refreshList(running)
+            updateDirectBtn()
         }
     }
 
@@ -374,6 +378,11 @@ class MainActivity : AppCompatActivity() {
         binding.emptyState.visibility = View.GONE
 
         val dp = resources.displayMetrics.density
+
+        // Auto-select direct card if nothing else is selected
+        if (!directOnlySelected && selectedUrl == null && activeUrl == null) {
+            directOnlySelected = true
+        }
 
         // Direct-only card — always shown at the top
         run {
@@ -533,6 +542,10 @@ class MainActivity : AppCompatActivity() {
                             override fun onAnimationEnd(a: Animation?) {
                                 if (isActive && running) stopVpn()
                                 deleteConfig(url, key)
+                                if (selectedUrl == url && selectedKey == key) {
+                                    selectedUrl = null
+                                    selectedKey = null
+                                }
                                 refreshList(running = Mobile.isRunning())
                             }
                         })
@@ -573,9 +586,7 @@ class MainActivity : AppCompatActivity() {
     private fun connectDirect() {
         Mobile.setDirectEnabled(true)
         updateDirectBtn()
-        directOnlySelected = false
         prefs.edit().putString("url", "").putString("key", "").apply()
-        refreshList(running = false)
         val vpnIntent = VpnService.prepare(this)
         if (vpnIntent != null) vpnPermissionLauncher.launch(vpnIntent) else launchVpnService()
     }
@@ -759,6 +770,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun toggleDirectMode() {
+        // Don't allow turning off direct mode while running with no relay config —
+        // the proxy has no coalescer and all traffic would 502.
+        if (Mobile.isRunning() && activeUrl == null) return
         val next = !Mobile.isDirectEnabled()
         Mobile.setDirectEnabled(next)
         updateDirectBtn()
@@ -766,11 +780,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateDirectBtn() {
         val on = Mobile.isDirectEnabled()
+        val locked = Mobile.isRunning() && activeUrl == null
         val color = ContextCompat.getColor(
             this,
             if (on) R.color.accent_success else R.color.text_dim
         )
         binding.btnDirect.imageTintList = ColorStateList.valueOf(color)
-        binding.btnDirect.alpha = if (on) 1f else 0.6f
+        binding.btnDirect.alpha = if (on && !locked) 1f else 0.6f
+        binding.btnDirect.isEnabled = !locked
     }
 }

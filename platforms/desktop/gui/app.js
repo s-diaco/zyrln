@@ -428,8 +428,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.ok) {
                 window.__ZYRLN_STATE__.lastSavedConfig = data;
-                // If a profile is selected, sync its stored config so switching away/back doesn't revert edits
-                if (profileSelect.value) {
+                // If a relay profile is selected, sync its stored config so switching away/back doesn't revert edits
+                if (profileSelect.value && profileSelect.value !== '__direct__') {
                     const currentProfile = selectedProfile();
                     const pConfig = { 'fronted-appscript-url': data['fronted-appscript-url'] || '', 'auth-key': data['auth-key'] || '' };
                     await fetch('/api/profiles', {
@@ -1082,7 +1082,7 @@ document.addEventListener('DOMContentLoaded', () => {
         [addProfileBtn, deleteProfileBtn].forEach(el => {
             if (!el) return;
             const needsSelectedProfile = el === deleteProfileBtn;
-            setButtonDisabled(el, isRunning || (needsSelectedProfile && !profileSelect.value));
+            setButtonDisabled(el, isRunning || (needsSelectedProfile && (!profileSelect.value || profileSelect.value === '__direct__')));
         });
     }
 
@@ -1127,7 +1127,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadConfig().then(() => {
         validateInputs();
         // Activate the auto-selected profile silently so config.env matches what's shown
-        if (profileSelect.value) activateSelectedProfile(true);
+        if (profileSelect.value && profileSelect.value !== '__direct__') activateSelectedProfile(true);
     });
     async function pollProxyLogs() {
         if (!window.__ZYRLN_STATE__.running) return;

@@ -1,6 +1,6 @@
 # Zyrln
 
-[🇮🇷 راهنمای فارسی](README_FA.md)
+[راهنمای فارسی](README_FA.md)
 
 Bypass internet censorship in Iran. Routes your traffic through Google's infrastructure — no VPN fingerprint, no blocked IP, no dedicated server to block.
 

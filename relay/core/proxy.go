@@ -132,7 +132,9 @@ func StartProxyWithSOCKSAndCoalescer(httpListenAddr, socksListenAddr string, app
 		return nil, nil, nil, nil, nil, err
 	}
 	httpSrv := buildHTTPProxyServer(httpListenAddr, coal, ca)
-	httpSrv.RegisterOnShutdown(coal.Stop)
+	if coal != nil {
+		httpSrv.RegisterOnShutdown(coal.Stop)
+	}
 	socksSrv := NewSOCKSServer(socksListenAddr, coal, ca)
 
 	httpLn, err := net.Listen("tcp", httpListenAddr)

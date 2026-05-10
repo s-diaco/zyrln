@@ -946,6 +946,10 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 			req.Config = profileConfig(req.Config)
 			profiles := loadProfiles(configPath)
 			id := strings.TrimSpace(req.ID)
+			if id == "__direct__" {
+				http.Error(w, "reserved profile id", http.StatusBadRequest)
+				return
+			}
 			if id == "" {
 				id = fmt.Sprintf("profile-%d", time.Now().UnixNano())
 			}
@@ -975,6 +979,10 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 			id := strings.TrimSpace(r.URL.Query().Get("id"))
 			if id == "" {
 				http.Error(w, "id is required", http.StatusBadRequest)
+				return
+			}
+			if id == "__direct__" {
+				http.Error(w, "cannot delete built-in profile", http.StatusBadRequest)
 				return
 			}
 			profiles := loadProfiles(configPath)
