@@ -230,6 +230,17 @@ func LastError() string {
 	return lastErr
 }
 
+// SetDirectEnabled controls whether Google domains bypass the relay via TLS
+// fragmentation. Enabled by default. Safe to call at any time.
+func SetDirectEnabled(enabled bool) {
+	core.SetDirectEnabled(enabled)
+}
+
+// IsDirectEnabled returns the current state of the direct-mode flag.
+func IsDirectEnabled() bool {
+	return core.GetDirectEnabled()
+}
+
 // GenerateCA generates a local CA cert + key at the given paths.
 // Returns an error string, or "" on success.
 func GenerateCA(certPath, keyPath string) string {

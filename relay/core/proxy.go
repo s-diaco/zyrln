@@ -241,6 +241,12 @@ func handleConnect(w http.ResponseWriter, r *http.Request, coal *Coalescer, ca *
 		return
 	}
 
+	// Google domains: dial directly with TLS fragmentation — no relay, no MITM.
+	if IsDirectDomain(certHost) {
+		handleDirectConnect(rawConn, r.Host)
+		return
+	}
+
 	_, _ = rawConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
 
 	cert, err := ca.CertForHost(certHost)
@@ -376,6 +382,17 @@ func (s *SOCKSServer) handleConn(conn net.Conn) {
 		}
 		certHost = strings.TrimSpace(certHost)
 		if certHost == "" {
+			return
+		}
+
+		// Google domains: pipe directly with TLS fragmentation — no relay, no MITM.
+		if IsDirectDomain(certHost) {
+			serverConn, ok := dialFragment(targetHost)
+			if !ok {
+				return
+			}
+			defer serverConn.Close()
+			pipe(&bufferedConn{Conn: conn, reader: reader}, serverConn)
 			return
 		}
 

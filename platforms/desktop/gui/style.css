@@ -375,6 +375,21 @@ body:not(.rtl) .main-header {
     margin-inline-start: var(--space-xs);
 }
 
+/* Direct mode button: dim when off, green when on */
+#directModeToggle {
+    background: var(--surface-2);
+    color: var(--text-dim);
+    opacity: 0.6;
+}
+#directModeToggle.active {
+    background: var(--accent-success);
+    color: white;
+    opacity: 1;
+}
+#directModeToggle:hover {
+    opacity: 1;
+}
+
 /* Dashboard Grid */
 .dashboard-grid {
     display: grid;

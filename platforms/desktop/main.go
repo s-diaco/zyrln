@@ -1258,6 +1258,26 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 		w.WriteHeader(http.StatusOK)
 	})
 
+	mux.HandleFunc("/api/settings", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			var req struct {
+				DirectEnabled *bool `json:"directEnabled"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			if req.DirectEnabled != nil {
+				core.SetDirectEnabled(*req.DirectEnabled)
+			}
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{
+			"directEnabled": core.GetDirectEnabled(),
+		})
+	})
+
 	// Serve frontend from /platforms/desktop/gui
 	guiFS, err := fs.Sub(embeddedGUI, "gui")
 	if err != nil {
