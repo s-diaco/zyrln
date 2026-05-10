@@ -168,6 +168,7 @@ Flags:
 	listenFlag := flag.String("listen", "127.0.0.1:8085", "listen address for -serve-proxy")
 	socksListenFlag := flag.String("socks-listen", "127.0.0.1:1080", "SOCKS5 listen address for -serve-proxy")
 	noDirectFlag := flag.Bool("no-direct", false, "disable direct TLS-fragmentation bypass for Google domains (route all traffic through relay)")
+	directEnabledFlag := flag.Bool("direct-enabled", true, "enable direct TLS-fragmentation bypass for Google domains (saved to config.env by GUI)")
 	exportConfigFlag := flag.Bool("export-config", false, "print config as JSON for importing into the Android app")
 	initCAFlag := flag.Bool("init-ca", false, "generate a local CA certificate for HTTPS proxy interception")
 	frontRedirectsFlag := flag.Bool("front-redirects", false, "when a fronted probe gets a redirect, retry the Location using the front domain and encrypted Host override")
@@ -260,6 +261,7 @@ Flags:
 		return
 	}
 
+	core.SetDirectEnabled(*directEnabledFlag)
 	if *noDirectFlag {
 		core.SetDirectEnabled(false)
 	}
@@ -1293,6 +1295,9 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 			}
 			if req.DirectEnabled != nil {
 				core.SetDirectEnabled(*req.DirectEnabled)
+				cfg := loadConfig(configPath)
+				cfg["direct-enabled"] = fmt.Sprintf("%v", *req.DirectEnabled)
+				_ = saveConfig(configPath, cfg)
 			}
 			w.WriteHeader(http.StatusOK)
 			return
