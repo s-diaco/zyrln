@@ -725,11 +725,24 @@ class MainActivity : AppCompatActivity() {
         certDir.mkdirs()
         val certFile = File(certDir, "ca.pem")
         val keyFile = File(certDir, "ca.key")
+        val wasGenerated = prefs.getBoolean("ca_generated", false)
         if (!certFile.exists() || !keyFile.exists()) {
-            // Generate once, reuse forever
             val err = Mobile.generateCA(certFile.absolutePath, keyFile.absolutePath)
             if (err.isNotEmpty()) {
                 Toast.makeText(this, "CA generation failed: $err", Toast.LENGTH_LONG).show()
+                return
+            }
+            prefs.edit().putBoolean("ca_generated", true).apply()
+            // If a CA was previously generated but files are gone (reinstall),
+            // warn the user that the old trusted cert is now invalid.
+            if (wasGenerated) {
+                androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle(getString(R.string.dialog_ca_title))
+                    .setMessage(getString(R.string.dialog_ca_reinstall_message))
+                    .setPositiveButton(android.R.string.ok) { _, _ ->
+                        createDocumentLauncher.launch("zyrln-ca.pem")
+                    }
+                    .show()
                 return
             }
         }
