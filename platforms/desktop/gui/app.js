@@ -616,11 +616,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 validateInputs();
             } else {
                 const errText = await response.text();
-                showLog(`❌ Failed: ${errText}`, 'error');
+                showLog(`Failed: ${errText}`, 'error');
                 showToast(`${t('toast.actionFailed')}: ${errText}`, 'error');
             }
         } catch (err) {
-            showLog(`❌ Connection error: ${err.message}`, 'error');
+            showLog(`Connection error: ${err.message}`, 'error');
         } finally {
             setTimeout(hideProgress, 500);
         }
@@ -732,7 +732,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/init-ca', { method: 'POST' });
             if (!response.ok) throw new Error('Generation failed');
             
-            showLog(`✅ ${tLog('log.certRegenerated')}`, 'info');
+            showLog(`${tLog('log.certRegenerated')}`, 'info');
             
             // 3. Download the data
             const certRes = await fetch('/api/download-ca');
@@ -743,7 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const writable = await handle.createWritable();
                 await writable.write(blob);
                 await writable.close();
-                showLog(`✅ ${tLog('log.certSaved')}`, 'info');
+                showLog(`${tLog('log.certSaved')}`, 'info');
             } else {
                 // Fallback for non-supported browsers
                 const url = window.URL.createObjectURL(blob);
@@ -752,7 +752,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 a.download = 'zyrln-ca.pem';
                 a.click();
                 window.URL.revokeObjectURL(url);
-                showLog(`✅ ${tLog('log.certDownloaded')}`, 'info');
+                showLog(`${tLog('log.certDownloaded')}`, 'info');
             }
             
             showToast(t('toast.certReady'));
@@ -760,7 +760,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateStatus();
         } catch (err) {
             console.error('Action Error:', err);
-            showLog(`❌ Error: ${err.message}`, 'error');
+            showLog(`Error: ${err.message}`, 'error');
             showToast(t('toast.actionFailed'));
         } finally {
             hideProgress();
