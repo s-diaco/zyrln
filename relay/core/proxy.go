@@ -74,7 +74,9 @@ func ServeProxyWithSOCKS(httpListenAddr, socksListenAddr string, appScriptURLs [
 		return err
 	}
 	httpSrv := buildHTTPProxyServer(httpListenAddr, coal, ca)
-	httpSrv.RegisterOnShutdown(coal.Stop)
+	if coal != nil {
+		httpSrv.RegisterOnShutdown(coal.Stop)
+	}
 	socksSrv := NewSOCKSServer(socksListenAddr, coal, ca)
 
 	errCh := make(chan error, 2)
