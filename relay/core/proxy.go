@@ -277,7 +277,6 @@ func handleConnect(w http.ResponseWriter, r *http.Request, coal *Coalescer, ca *
 		MinVersion:   tls.VersionTLS12,
 	})
 	if err := tlsConn.Handshake(); err != nil {
-		logf("error", "TLS handshake %s: %v (CA not installed?)", certHost, err)
 		return
 	}
 	defer tlsConn.Close()
@@ -432,7 +431,6 @@ func (s *SOCKSServer) handleConn(conn net.Conn) {
 		})
 		defer tlsConn.Close()
 		if err := tlsConn.Handshake(); err != nil {
-			logf("error", "SOCKS TLS handshake %s: %v (CA not installed?)", certHost, err)
 			return
 		}
 		handleMITMTLS(tlsConn, certHost, targetHost, s.coal)
