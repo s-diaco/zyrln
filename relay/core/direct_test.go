@@ -102,13 +102,13 @@ func TestPipe_BothGoroutinesFinish(t *testing.T) {
 	}
 }
 
-// --- dialFragment ---
+// --- DialFragment ---
 
 func TestDialFragment_Success(t *testing.T) {
 	addr := startEchoServer(t)
-	conn, ok := dialFragment(addr)
+	conn, ok := DialFragment(addr)
 	if !ok {
-		t.Fatal("dialFragment returned ok=false for reachable server")
+		t.Fatal("DialFragment returned ok=false for reachable server")
 	}
 	defer conn.Close()
 
@@ -127,13 +127,13 @@ func TestDialFragment_Success(t *testing.T) {
 
 func TestDialFragment_Failure(t *testing.T) {
 	// Port 1 is reserved and should always refuse connections.
-	conn, ok := dialFragment("127.0.0.1:1")
+	conn, ok := DialFragment("127.0.0.1:1")
 	if ok {
 		conn.Close()
-		t.Error("dialFragment should return ok=false for unreachable address")
+		t.Error("DialFragment should return ok=false for unreachable address")
 	}
 	if conn != nil {
-		t.Error("dialFragment should return nil conn on failure")
+		t.Error("DialFragment should return nil conn on failure")
 	}
 }
 

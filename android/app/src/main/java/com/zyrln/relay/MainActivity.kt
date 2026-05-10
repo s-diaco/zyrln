@@ -54,6 +54,7 @@ class MainActivity : AppCompatActivity() {
     @Volatile private var activeKey: String? = null
     private var selectedUrl: String? = null
     private var selectedKey: String? = null
+    private var directOnlySelected: Boolean = false
 
     private val vpnPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -245,9 +246,8 @@ class MainActivity : AppCompatActivity() {
             stopVpn()
             return
         }
-        val configs = loadConfigs()
         when {
-            configs.isEmpty() -> Toast.makeText(this, R.string.empty_configs, Toast.LENGTH_SHORT).show()
+            directOnlySelected -> connectDirect()
             selectedUrl != null -> connectConfig(selectedUrl!!, selectedKey ?: "")
             else -> { /* button should be disabled — no-op */ }
         }
@@ -359,10 +359,10 @@ class MainActivity : AppCompatActivity() {
         val configs = loadConfigs()
         binding.configList.removeAllViews()
 
-        val connectEnabled = running || selectedUrl != null
+        // Connect is always enabled — direct mode works without any config
         binding.btnConnect.visibility = View.VISIBLE
-        binding.btnConnect.isEnabled = connectEnabled
-        binding.btnConnect.alpha = if (connectEnabled) 1f else 0.4f
+        binding.btnConnect.isEnabled = true
+        binding.btnConnect.alpha = 1f
 
         if (running) {
             binding.configScroll.visibility = View.GONE
@@ -370,16 +370,50 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        if (configs.isEmpty()) {
-            binding.configScroll.visibility = View.GONE
-            binding.emptyState.visibility = View.VISIBLE
-            return
-        }
-
         binding.configScroll.visibility = View.VISIBLE
         binding.emptyState.visibility = View.GONE
 
         val dp = resources.displayMetrics.density
+
+        // Direct-only card — always shown at the top
+        run {
+            val isSelected = directOnlySelected
+            val card = CardView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = (10 * dp).toInt() }
+                radius = 14 * dp
+                cardElevation = 0f
+                setCardBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.card_bg))
+            }
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutDirection = View.LAYOUT_DIRECTION_LTR
+                val p = (14 * dp).toInt()
+                setPadding(p, p, p, p)
+                background = ContextCompat.getDrawable(this@MainActivity,
+                    if (isSelected) R.drawable.bg_card_selected else R.drawable.bg_card)
+            }
+            val label = TextView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                text = "⚡ ${getString(R.string.direct_only_label)}"
+                textSize = 15f
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.title))
+                if (isSelected) setTypeface(null, android.graphics.Typeface.BOLD)
+            }
+            row.addView(label)
+            card.addView(row)
+            row.setOnClickListener {
+                directOnlySelected = true
+                selectedUrl = null
+                selectedKey = null
+                refreshList(running = false)
+            }
+            binding.configList.addView(card)
+        }
+
         val iconButtonSize = (40 * dp).toInt()
         val iconButtonPadding = (8 * dp).toInt()
         val hostnames = configs.map { (url, _) -> configLabel(url) }
@@ -478,6 +512,7 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         selectedUrl = url
                         selectedKey = key
+                        directOnlySelected = false
                     }
                     refreshList(running = false)
                 }
@@ -530,6 +565,16 @@ class MainActivity : AppCompatActivity() {
         selectedUrl = null
         selectedKey = null
         prefs.edit().putString("url", url).putString("key", key).apply()
+        refreshList(running = false)
+        val vpnIntent = VpnService.prepare(this)
+        if (vpnIntent != null) vpnPermissionLauncher.launch(vpnIntent) else launchVpnService()
+    }
+
+    private fun connectDirect() {
+        Mobile.setDirectEnabled(true)
+        updateDirectBtn()
+        directOnlySelected = false
+        prefs.edit().putString("url", "").putString("key", "").apply()
         refreshList(running = false)
         val vpnIntent = VpnService.prepare(this)
         if (vpnIntent != null) vpnPermissionLauncher.launch(vpnIntent) else launchVpnService()

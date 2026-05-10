@@ -112,7 +112,9 @@ func StartProxyWithCoalescer(listenAddr string, appScriptURLs []string, frontDom
 		return nil, nil, err
 	}
 	srv := buildHTTPProxyServer(listenAddr, coal, ca)
-	srv.RegisterOnShutdown(coal.Stop)
+	if coal != nil {
+		srv.RegisterOnShutdown(coal.Stop)
+	}
 	return srv, coal, nil
 }
 
@@ -155,13 +157,15 @@ func listenAndServeProxy(listenAddr string, appScriptURLs []string, frontDomain,
 		return nil, err
 	}
 	srv := buildHTTPProxyServer(listenAddr, coal, ca)
-	srv.RegisterOnShutdown(coal.Stop)
+	if coal != nil {
+		srv.RegisterOnShutdown(coal.Stop)
+	}
 	return srv, nil
 }
 
 func newProxyCoalescer(appScriptURLs []string, frontDomain, authKey string, client *http.Client, timeout time.Duration) (*Coalescer, error) {
 	if len(appScriptURLs) == 0 {
-		return nil, fmt.Errorf("no Apps Script URLs configured")
+		return nil, nil
 	}
 	coal := NewCoalescer(client, appScriptURLs, frontDomain, authKey, timeout)
 	coal.Warmup()
@@ -199,6 +203,10 @@ func handleHTTP(w http.ResponseWriter, r *http.Request, coal *Coalescer) {
 	}
 	defer r.Body.Close()
 
+	if coal == nil {
+		http.Error(w, "relay not configured", http.StatusBadGateway)
+		return
+	}
 	relayResp, err := coal.Submit(r.Method, targetURL, forwardHeaders(r.Header), body)
 	if err != nil {
 		http.Error(w, "relay failed: "+err.Error(), http.StatusBadGateway)
@@ -244,6 +252,11 @@ func handleConnect(w http.ResponseWriter, r *http.Request, coal *Coalescer, ca *
 	// Google domains: dial directly with TLS fragmentation — no relay, no MITM.
 	if IsDirectDomain(certHost) {
 		handleDirectConnect(rawConn, r.Host)
+		return
+	}
+
+	if ca == nil {
+		rawConn.Write([]byte("HTTP/1.1 502 No CA configured\r\n\r\n"))
 		return
 	}
 
@@ -295,6 +308,10 @@ func handleMITMTLS(tlsConn net.Conn, certHost, targetHost string, coal *Coalesce
 		}
 
 		targetURL := "https://" + targetHost + req.URL.RequestURI()
+		if coal == nil {
+			_, _ = tlsConn.Write([]byte("HTTP/1.1 502 Relay not configured\r\nConnection: close\r\n\r\n"))
+			return
+		}
 		relayResp, err := coal.Submit(req.Method, targetURL, forwardHeaders(req.Header), body)
 		if err != nil {
 			writeHTTPError(tlsConn, http.StatusBadGateway, "relay failed: "+err.Error())
@@ -387,7 +404,7 @@ func (s *SOCKSServer) handleConn(conn net.Conn) {
 
 		// Google domains: pipe directly with TLS fragmentation — no relay, no MITM.
 		if IsDirectDomain(certHost) {
-			serverConn, ok := dialFragment(targetHost)
+			serverConn, ok := DialFragment(targetHost)
 			if !ok {
 				return
 			}
@@ -396,6 +413,9 @@ func (s *SOCKSServer) handleConn(conn net.Conn) {
 			return
 		}
 
+		if s.ca == nil {
+			return
+		}
 		cert, err := s.ca.CertForHost(certHost)
 		if err != nil {
 			logf("error", "SOCKS TLS cert %s: %v", certHost, err)
@@ -561,6 +581,10 @@ func handleSOCKSHTTP(conn net.Conn, targetHost string, coal *Coalescer) {
 		}
 
 		targetURL := "http://" + host + req.URL.RequestURI()
+		if coal == nil {
+			writeHTTPError(conn, http.StatusBadGateway, "relay not configured")
+			return
+		}
 		relayResp, err := coal.Submit(req.Method, targetURL, forwardHeaders(req.Header), body)
 		if err != nil {
 			writeHTTPError(conn, http.StatusBadGateway, "relay failed: "+err.Error())

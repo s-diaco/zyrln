@@ -80,11 +80,11 @@ func TestStart_LoadsExistingCA(t *testing.T) {
 	}
 
 	err := Start("", "secret", "127.0.0.1:0", certPath, keyPath)
-	if !strings.Contains(err, "no Apps Script URLs configured") {
-		t.Fatalf("Start error = %q, want missing Apps Script config error after CA load", err)
+	if err != "" {
+		t.Fatalf("Start with empty URL should succeed (direct-only mode), got error: %s", err)
 	}
-	if IsRunning() {
-		t.Fatal("Start should not leave proxy running when config is incomplete")
+	if !IsRunning() {
+		t.Fatal("Start should leave proxy running in direct-only mode")
 	}
 }
 

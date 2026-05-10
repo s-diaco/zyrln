@@ -98,9 +98,9 @@ func pipe(a, b net.Conn) {
 	<-done
 }
 
-// dialFragment dials addr with fragmentation. Returns (conn, true) on success,
+// DialFragment dials addr with fragmentation. Returns (conn, true) on success,
 // (nil, false) on error — caller must handle the false case before piping.
-func dialFragment(addr string) (net.Conn, bool) {
+func DialFragment(addr string) (net.Conn, bool) {
 	conn, err := defaultFragmentDialer.DialTCP(addr)
 	if err != nil {
 		logf("error", "direct dial %s: %v", addr, err)

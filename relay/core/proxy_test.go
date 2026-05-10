@@ -106,11 +106,13 @@ func TestForwardHeaders_MultiValueTakesFirst(t *testing.T) {
 	}
 }
 
-func TestStartProxy_RejectsEmptyURLList(t *testing.T) {
-	_, _, err := StartProxy("127.0.0.1:0", nil, "www.google.com", "k", nil, http.DefaultClient, time.Second)
-	if err == nil {
-		t.Fatal("expected StartProxy to reject an empty Apps Script URL list")
+func TestStartProxy_AllowsEmptyURLList(t *testing.T) {
+	srv, ln, err := StartProxy("127.0.0.1:0", nil, "www.google.com", "k", nil, http.DefaultClient, time.Second)
+	if err != nil {
+		t.Fatalf("StartProxy with empty URL list returned error: %v", err)
 	}
+	_ = ln.Close()
+	_ = srv.Close()
 }
 
 func TestCoalescerFlush_RejectsEmptyURLList(t *testing.T) {

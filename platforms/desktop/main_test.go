@@ -533,6 +533,8 @@ func TestGUIInitCAAndDownload(t *testing.T) {
 
 func TestGUIStartRequiresConfig(t *testing.T) {
 	resetGUIStateForTest(t)
+	core.SetDirectEnabled(false) // direct mode must be off for relay-required validation
+	t.Cleanup(func() { core.SetDirectEnabled(true) })
 	dir := t.TempDir()
 	handler := newTestGUIHandler(t, dir, nil)
 

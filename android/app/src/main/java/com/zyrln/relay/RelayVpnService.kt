@@ -46,18 +46,18 @@ class RelayVpnService : VpnService() {
     }
 
     private fun startRelay(url: String, key: String) {
-        val certDir = File(filesDir, "certs")
-        certDir.mkdirs()
-
-        val certPath = File(certDir, "ca.pem").absolutePath
-        val keyPath = File(certDir, "ca.key").absolutePath
-
-        if (!File(certPath).exists() || !File(keyPath).exists()) {
-            failStart(getString(R.string.error_ca_required))
-            return
+        val err = if (url.isEmpty()) {
+            Mobile.startDirect("127.0.0.1:$PROXY_PORT")
+        } else {
+            val certDir = File(filesDir, "certs").also { it.mkdirs() }
+            val certPath = File(certDir, "ca.pem").absolutePath
+            val keyPath = File(certDir, "ca.key").absolutePath
+            if (!File(certPath).exists() || !File(keyPath).exists()) {
+                failStart(getString(R.string.error_ca_required))
+                return
+            }
+            Mobile.start(url, key, "127.0.0.1:$PROXY_PORT", certPath, keyPath)
         }
-
-        val err = Mobile.start(url, key, "127.0.0.1:$PROXY_PORT", certPath, keyPath)
         if (err.isNotEmpty()) {
             Log.e(TAG, "relay start failed: $err")
             failStart(getString(R.string.error_relay_start_failed, err))

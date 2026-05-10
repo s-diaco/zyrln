@@ -389,6 +389,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const selected = profileSelectValue;
         profileSelectDropdown.innerHTML = '';
 
+        // Always show direct-only entry at the top
+        const directLi = document.createElement('li');
+        directLi.dataset.value = '__direct__';
+        directLi.textContent = '⚡ ' + t('tool.directMode');
+        profileSelectDropdown.appendChild(directLi);
+
         window.__ZYRLN_STATE__.profiles.forEach(profile => {
             const li = document.createElement('li');
             li.dataset.value = profile.id;
@@ -604,7 +610,15 @@ document.addEventListener('DOMContentLoaded', () => {
             validateInputs();
             return;
         }
-        if (!isRunning) {
+        if (!isRunning && profileSelect.value === '__direct__') {
+            // Direct-only mode: enable direct, skip relay config validation
+            await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ directEnabled: true }),
+            });
+            directModeToggle.classList.add('active');
+        } else if (!isRunning) {
             const savedUrl = (window.__ZYRLN_STATE__.lastSavedConfig?.['fronted-appscript-url'] || '').split(',')[0].trim();
             if (!savedUrl.startsWith('https://script.google.com/')) {
                 showLog('Relay URL is not a valid Apps Script URL — cannot connect.', 'error');
@@ -1051,13 +1065,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Basic requirement: fields must not be empty
         const hasRunnableConfig = hasSavedConfig();
+        const hasRelay = hasRelayConfig();
         const isActivating = window.__ZYRLN_STATE__.activating;
 
         setButtonDisabled(toggleProxyBtn, isActivating || (!isRunning && !hasRunnableConfig));
 
-        // These actions use saved config.env, not unsaved form edits.
-        if (runProbesBtn) setButtonDisabled(runProbesBtn, !hasRunnableConfig || window.__ZYRLN_STATE__.probesRunning);
-        if (exportMobileBtn) setButtonDisabled(exportMobileBtn, !hasRunnableConfig || isActivating);
+        // These actions require a relay config (Apps Script URL + key), not just direct mode.
+        if (runProbesBtn) setButtonDisabled(runProbesBtn, !hasRelay || window.__ZYRLN_STATE__.probesRunning);
+        if (exportMobileBtn) setButtonDisabled(exportMobileBtn, !hasRelay || isActivating);
 
         // Install Certificate is special — it only needs the server to be ready, but we'll keep it enabled
         if (btnRegenCA) {
@@ -1072,6 +1087,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function hasSavedConfig() {
+        if (profileSelect.value === '__direct__') return true;
+        return hasRelayConfig();
+    }
+
+    function hasRelayConfig() {
         const config = window.__ZYRLN_STATE__.lastSavedConfig || {};
         const url = (config['fronted-appscript-url'] || '').trim();
         const key = (config['auth-key'] || '').trim();
@@ -1093,7 +1113,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.__ZYRLN_STATE__.activating) return;
         validateInputs();
         playMotion(profileSelectWrapper, 'motion-select');
-        activateSelectedProfile();
+        if (profileSelect.value === '__direct__') {
+            setUrlRows('');
+            document.getElementById('auth-key').value = '';
+        } else {
+            activateSelectedProfile();
+        }
     });
 
     applyTheme();

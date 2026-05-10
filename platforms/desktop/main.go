@@ -1082,19 +1082,24 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 		if socksListen == "" {
 			socksListen = "127.0.0.1:1080"
 		}
-		if len(urls) == 0 {
+		directOnly := len(urls) == 0 && core.GetDirectEnabled()
+		if len(urls) == 0 && !directOnly {
 			http.Error(w, "fronted-appscript-url is required", http.StatusBadRequest)
 			return
 		}
-		if strings.TrimSpace(key) == "" {
+		if !directOnly && strings.TrimSpace(key) == "" {
 			http.Error(w, "auth-key is required", http.StatusBadRequest)
 			return
 		}
 
-		ca, err := core.LoadCA(caCertPath, caKeyPath)
-		if err != nil {
-			http.Error(w, "CA certificate missing or invalid. Install certificate first.", http.StatusBadRequest)
-			return
+		var ca *core.CertAuthority
+		if !directOnly {
+			var err error
+			ca, err = core.LoadCA(caCertPath, caKeyPath)
+			if err != nil {
+				http.Error(w, "CA certificate missing or invalid. Install certificate first.", http.StatusBadRequest)
+				return
+			}
 		}
 
 		srv, ln, socksSrv, socksLn, err := startProxy(listen, socksListen, urls, key, ca)
@@ -1187,13 +1192,19 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 			urls := parseURLList(cfg["fronted-appscript-url"])
 			key := cfg["auth-key"]
 			if len(urls) == 0 || strings.TrimSpace(key) == "" {
-				http.Error(w, "relay not configured", http.StatusBadRequest)
-				return
+				// No relay config — ping via direct fragmented connection to gstatic
+				conn, ok := core.DialFragment("www.gstatic.com:443")
+				if ok {
+					conn.Close()
+				} else {
+					err = fmt.Errorf("direct connection failed")
+				}
+			} else {
+				client := core.NewHTTPClient(15 * time.Second)
+				_, err = core.RelayRequestMulti(client, urls, "www.google.com", key,
+					"HEAD", "https://www.gstatic.com/generate_204",
+					map[string]string{}, nil, 15*time.Second)
 			}
-			client := core.NewHTTPClient(15 * time.Second)
-			_, err = core.RelayRequestMulti(client, urls, "www.google.com", key,
-				"HEAD", "https://www.gstatic.com/generate_204",
-				map[string]string{}, nil, 15*time.Second)
 		}
 		ms := time.Since(start).Milliseconds()
 		if err != nil {
