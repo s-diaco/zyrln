@@ -195,6 +195,11 @@ Flags:
 		os.Exit(1)
 	}
 
+	core.SetDirectEnabled(*directEnabledFlag)
+	if *noDirectFlag {
+		core.SetDirectEnabled(false)
+	}
+
 	if *guiFlag {
 		startGUIServer(*guiListenFlag, *configFlag, *caCertFlag, *caKeyFlag)
 		return
@@ -259,11 +264,6 @@ Flags:
 			os.Exit(1)
 		}
 		return
-	}
-
-	core.SetDirectEnabled(*directEnabledFlag)
-	if *noDirectFlag {
-		core.SetDirectEnabled(false)
 	}
 
 	if *serveProxyFlag {
