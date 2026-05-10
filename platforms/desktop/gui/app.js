@@ -35,6 +35,9 @@ document.addEventListener('DOMContentLoaded', () => {
             'tool.securityDesc': 'Create the local CA file',
             'button.installCert': 'Install Certificate',
             'help.cert': 'Generate and download the CA certificate.',
+            'tool.directMode': 'Direct (Google)',
+            'tool.directModeDesc': 'Bypass relay for Google services',
+            'button.directMode': 'Toggle direct mode',
             'stat.uptime': 'Uptime',
             'stat.requests': 'Requests',
             'placeholder.filter': 'Filter logs...',
@@ -112,6 +115,9 @@ document.addEventListener('DOMContentLoaded', () => {
             'tool.securityDesc': 'ساخت فایل CA محلی',
             'button.installCert': 'نصب گواهینامه',
             'help.cert': 'ساخت و دانلود گواهینامه CA',
+            'tool.directMode': 'مستقیم (گوگل)',
+            'tool.directModeDesc': 'اتصال مستقیم به سرویس‌های گوگل',
+            'button.directMode': 'تغییر حالت مستقیم',
             'stat.uptime': 'زمان اجرا',
             'stat.requests': 'درخواست‌ها',
             'placeholder.filter': '...فیلتر لاگ‌ها',
@@ -197,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const runProbesBtn = document.getElementById('runProbesBtn');
     const exportMobileBtn = document.getElementById('exportMobileBtn');
     const pingBtn = document.getElementById('pingBtn');
+    const directModeToggle = document.getElementById('directModeToggle');
     const pingResult = document.getElementById('pingResult');
     const logFilter = document.getElementById('logFilter');
     const toggleAuthVisible = document.getElementById('toggleAuthVisible');
@@ -766,6 +773,36 @@ document.addEventListener('DOMContentLoaded', () => {
             hideProgress();
         }
     });
+
+    // Direct mode toggle
+    async function loadDirectMode() {
+        try {
+            const res = await fetch('/api/settings');
+            if (!res.ok) return;
+            const data = await res.json();
+            directModeToggle.classList.toggle('active', !!data.directEnabled);
+            directModeToggle.title = data.directEnabled ? 'Direct mode ON — Google bypasses relay' : 'Direct mode OFF';
+        } catch (_) {}
+    }
+
+    directModeToggle.addEventListener('click', async () => {
+        try {
+            const isOn = directModeToggle.classList.contains('active');
+            const next = !isOn;
+            await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ directEnabled: next }),
+            });
+            directModeToggle.classList.toggle('active', next);
+            directModeToggle.title = next ? 'Direct mode ON — Google bypasses relay' : 'Direct mode OFF';
+            showLog(next ? 'Direct mode enabled — Google services bypass relay' : 'Direct mode disabled — all traffic via relay', 'info');
+        } catch (err) {
+            showLog(`Error: ${err.message}`, 'error');
+        }
+    });
+
+    loadDirectMode();
 
     // Log Filtering
     logFilter.addEventListener('input', (e) => {

@@ -42,3 +42,7 @@ TODO.md
 *.apk
 *.exe
 zyrln-linux-amd64
+config.env.profiles.json
+zyrln-1.5.1-pre4-linux-amd64
+zyrln-*
+coverage.out

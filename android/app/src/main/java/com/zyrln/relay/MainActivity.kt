@@ -138,6 +138,7 @@ class MainActivity : AppCompatActivity() {
         binding.btnLanguage.setOnClickListener { toggleLanguage() }
         binding.btnTheme.setOnClickListener { toggleTheme() }
         binding.btnConnect.setOnClickListener { onConnectClicked() }
+        binding.btnDirect.setOnClickListener { toggleDirectMode() }
         binding.btnShareLog.setOnClickListener { shareLog() }
         binding.btnPing.setOnClickListener {
             val configs = loadConfigs()
@@ -180,6 +181,7 @@ class MainActivity : AppCompatActivity() {
         updateUI(running = Mobile.isRunning())
         updateLanguageButton()
         updateThemeButton()
+        updateDirectBtn()
 
         // Restore log cache after recreation (theme/language change)
         if (logCache.isNotEmpty() && Mobile.isRunning()) {
@@ -709,5 +711,21 @@ class MainActivity : AppCompatActivity() {
             Log.e("MainActivity", "Failed to save cert: ${e.message}")
             Toast.makeText(this, "Save failed: ${e.message}", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun toggleDirectMode() {
+        val next = !Mobile.isDirectEnabled()
+        Mobile.setDirectEnabled(next)
+        updateDirectBtn()
+    }
+
+    private fun updateDirectBtn() {
+        val on = Mobile.isDirectEnabled()
+        val color = ContextCompat.getColor(
+            this,
+            if (on) R.color.accent_success else R.color.text_dim
+        )
+        binding.btnDirect.imageTintList = ColorStateList.valueOf(color)
+        binding.btnDirect.alpha = if (on) 1f else 0.6f
     }
 }
