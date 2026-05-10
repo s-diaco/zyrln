@@ -3,7 +3,6 @@ package core
 import (
 	"math/rand/v2"
 	"net"
-	"syscall"
 	"time"
 )
 
@@ -42,21 +41,6 @@ func (d *fragmentDialer) DialTCP(addr string) (net.Conn, error) {
 	// would reassemble our fragments before they leave the machine.
 	setTCPNoDelay(conn)
 	return &fragmentConn{Conn: conn, cfg: d.cfg, firstWrite: true}, nil
-}
-
-// setTCPNoDelay disables Nagle's algorithm on conn if it is a *net.TCPConn.
-func setTCPNoDelay(conn net.Conn) {
-	tc, ok := conn.(*net.TCPConn)
-	if !ok {
-		return
-	}
-	raw, err := tc.SyscallConn()
-	if err != nil {
-		return
-	}
-	_ = raw.Control(func(fd uintptr) {
-		_ = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, syscall.TCP_NODELAY, 1)
-	})
 }
 
 // fragmentConn wraps a net.Conn and fragments only the very first Write call
