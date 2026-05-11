@@ -6,7 +6,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
-import android.app.AlertDialog
+import androidx.appcompat.app.AlertDialog
 import android.content.BroadcastReceiver
 import android.content.ClipboardManager
 import android.content.Context
@@ -429,6 +429,7 @@ class MainActivity : AppCompatActivity() {
                 selectedUrl = null
                 selectedKey = null
                 refreshList(running = false)
+                updateDirectBtn()
             }
             binding.configList.addView(card)
         }
@@ -532,13 +533,15 @@ class MainActivity : AppCompatActivity() {
                         selectedUrl = url
                         selectedKey = key
                         directOnlySelected = false
+                        Mobile.setDirectEnabled(false)
                     }
                     refreshList(running = false)
+                    updateDirectBtn()
                 }
             }
 
             deleteBtn.setOnClickListener {
-                AlertDialog.Builder(this, R.style.Dialog_Zyrln)
+                AlertDialog.Builder(this, R.style.Dialog_Zyrln_Destructive)
                     .setTitle(R.string.dialog_remove_title)
                     .setMessage(if (isActive && running)
                         getString(R.string.dialog_remove_active, displayLabel)
@@ -576,6 +579,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun connectConfig(url: String, key: String) {
+        Mobile.setDirectEnabled(false)
         if (!hasInstalledCA()) {
             activeUrl = null
             activeKey = null
@@ -737,7 +741,7 @@ class MainActivity : AppCompatActivity() {
             // If a CA was previously generated but files are gone (reinstall),
             // warn the user that the old trusted cert is now invalid.
             if (wasGenerated) {
-                androidx.appcompat.app.AlertDialog.Builder(this)
+                AlertDialog.Builder(this)
                     .setTitle(getString(R.string.dialog_ca_title))
                     .setMessage(getString(R.string.dialog_ca_reinstall_message))
                     .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -794,23 +798,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun toggleDirectMode() {
-        // Don't allow turning off direct mode while running with no relay config —
-        // the proxy has no coalescer and all traffic would 502.
-        if (Mobile.isRunning() && activeUrl == null) return
+        // Only block toggling off while running in direct-only mode (no relay active)
+        if (Mobile.isRunning() && directOnlySelected) return
         val next = !Mobile.isDirectEnabled()
         Mobile.setDirectEnabled(next)
         updateDirectBtn()
     }
 
     private fun updateDirectBtn() {
-        val on = Mobile.isDirectEnabled()
-        val locked = Mobile.isRunning() && activeUrl == null
+        val on = Mobile.isDirectEnabled() || directOnlySelected
         val color = ContextCompat.getColor(
             this,
             if (on) R.color.accent_success else R.color.text_dim
         )
         binding.btnDirect.imageTintList = ColorStateList.valueOf(color)
-        binding.btnDirect.alpha = if (on && !locked) 1f else 0.6f
-        binding.btnDirect.isEnabled = !locked
+        binding.btnDirect.alpha = 1f
+        binding.btnDirect.isEnabled = true
     }
 }

@@ -27,7 +27,7 @@ import (
 )
 
 const defaultProxyAddress = "direct"
-const appVersion = "1.5.1-pre4"
+const appVersion = "1.5.1-pre5"
 
 //go:embed gui/*
 var embeddedGUI embed.FS
@@ -1051,6 +1051,10 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 			if guiSOCKSLn != nil {
 				_ = guiSOCKSLn.Close()
 			}
+			if guiCoalescer != nil {
+				guiCoalescer.Stop()
+				guiCoalescer = nil
+			}
 			guiProxyServer = nil
 			guiProxyLn = nil
 			guiSOCKSServer = nil
@@ -1148,11 +1152,14 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 		if guiSOCKSLn != nil {
 			_ = guiSOCKSLn.Close()
 		}
+		if guiCoalescer != nil {
+			guiCoalescer.Stop()
+			guiCoalescer = nil
+		}
 		guiProxyServer = nil
 		guiProxyLn = nil
 		guiSOCKSServer = nil
 		guiSOCKSLn = nil
-		guiCoalescer = nil
 		guiProxyStartTime = time.Time{}
 		guiMu.Unlock()
 		w.WriteHeader(http.StatusOK)
@@ -1193,6 +1200,11 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 	})
 
 	mux.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Direct bool `json:"direct"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+
 		guiMu.Lock()
 		coal := guiCoalescer
 		guiMu.Unlock()
@@ -1200,8 +1212,16 @@ func newGUIHandler(configPath, caCertPath, caKeyPath string, startProxy guiProxy
 		w.Header().Set("Content-Type", "application/json")
 		start := time.Now()
 		var err error
-		if coal != nil {
+		if !req.Direct && coal != nil {
 			_, err = coal.Submit("HEAD", "https://www.gstatic.com/generate_204", map[string]string{}, nil)
+		} else if req.Direct {
+			// Direct mode — always use fragmented connection, never relay
+			conn, ok := core.DialFragment("www.gstatic.com:443")
+			if ok {
+				conn.Close()
+			} else {
+				err = fmt.Errorf("direct connection failed")
+			}
 		} else {
 			cfg := loadConfig(configPath)
 			urls := parseURLList(cfg["fronted-appscript-url"])

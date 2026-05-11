@@ -251,7 +251,10 @@ func Stop() {
 		_ = server.Shutdown(ctx)
 		server = nil
 	}
-	coalescer = nil
+	if coalescer != nil {
+		coalescer.Stop()
+		coalescer = nil
+	}
 	emitLog("system", "Proxy stopped")
 }
 

@@ -3,6 +3,8 @@ package core
 import (
 	"context"
 	"crypto/tls"
+	"bytes"
+	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -171,7 +173,7 @@ type Coalescer struct {
 	stopOnce      sync.Once
 }
 
-const keepaliveInterval = 4 * time.Minute
+const keepaliveInterval = 2*time.Minute + 30*time.Second
 
 type coalescerItem struct {
 	method    string
@@ -195,8 +197,9 @@ type batchPayloadItem struct {
 }
 
 type batchEnvelope struct {
-	Key   string             `json:"k"`
-	Items []batchPayloadItem `json:"q"`
+	Key      string             `json:"k"`
+	Items    []batchPayloadItem `json:"q"`
+	Compress int                `json:"gz"`
 }
 
 type batchResponseEnvelope struct {
@@ -460,7 +463,7 @@ func (c *Coalescer) flush(batch []*coalescerItem) {
 		items[i] = pi
 	}
 
-	env := batchEnvelope{Key: c.authKey, Items: items}
+	env := batchEnvelope{Key: c.authKey, Items: items, Compress: 1}
 	payload, err := json.Marshal(env)
 	if err != nil {
 		c.failAll(batch, fmt.Errorf("batch marshal: %w", err))
@@ -632,7 +635,32 @@ func appsScriptRoundTrip(ctx context.Context, client *http.Client, appScriptURL,
 	if status < 200 || status >= 500 {
 		return nil, fmt.Errorf("relay returned %d: %s", status, previewBytes(body, 256))
 	}
-	return body, nil
+	return decompressRelayResponse(body), nil
+}
+
+// decompressRelayResponse unwraps {"z":"<base64-gzip>"} responses from Apps Script.
+// Returns the original body unchanged if it is not in compressed envelope form.
+func decompressRelayResponse(body []byte) []byte {
+	var envelope struct {
+		Z string `json:"z"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil || envelope.Z == "" {
+		return body
+	}
+	compressed, err := base64.StdEncoding.DecodeString(envelope.Z)
+	if err != nil {
+		return body
+	}
+	r, err := gzip.NewReader(bytes.NewReader(compressed))
+	if err != nil {
+		return body
+	}
+	defer r.Close()
+	out, err := io.ReadAll(io.LimitReader(r, maxRelayBody))
+	if err != nil {
+		return body
+	}
+	return out
 }
 
 func newFrontedPOST(ctx context.Context, appScriptURL, frontDomain, payload string) (*http.Request, error) {
@@ -695,11 +723,12 @@ func doHTTP(client *http.Client, req *http.Request) (status int, location string
 
 func buildRelayPayload(authKey, method, targetURL string, headers map[string]string, body []byte) string {
 	payload := map[string]any{
-		"k": authKey,
-		"m": strings.ToUpper(method),
-		"u": targetURL,
-		"h": headers,
-		"r": false,
+		"k":  authKey,
+		"m":  strings.ToUpper(method),
+		"u":  targetURL,
+		"h":  headers,
+		"r":  false,
+		"gz": 1,
 	}
 	if len(body) > 0 {
 		payload["b"] = base64.StdEncoding.EncodeToString(body)

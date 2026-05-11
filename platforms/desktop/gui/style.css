@@ -4,6 +4,7 @@
     --accent-primary: #4facfe;
     --accent-secondary: #00f2fe;
     --accent-success: #10b981;
+    --accent-warning: #ffbb00;
     --accent-error: #ef4444;
     --text-main: #f1f5f9;
     --text-dim: #8896aa;
@@ -333,7 +334,7 @@ body:not(.rtl) .main-header {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: var(--accent-error);
+    background: var(--accent-success);
     color: white;
     border: none;
     min-height: var(--control-height);
@@ -347,16 +348,32 @@ body:not(.rtl) .main-header {
 }
 
 .connect-btn.danger {
-    background: var(--accent-success);
+    background: var(--accent-error);
 }
 
 .connect-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 16px color-mix(in srgb, var(--accent-error) 48%, transparent);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--accent-success) 48%, transparent);
 }
 
 .connect-btn.danger:hover {
-    box-shadow: 0 4px 16px color-mix(in srgb, var(--accent-success) 48%, transparent);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--accent-error) 48%, transparent);
+}
+
+.connect-btn.warning {
+    background: var(--accent-warning);
+}
+
+.connect-btn.warning:not(.active) {
+    background: var(--accent-error);
+}
+
+.connect-btn.warning:hover:not(.active) {
+    background: var(--accent-error);
+}
+
+.connect-btn.warning:hover {
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--accent-warning) 48%, transparent);
 }
 
 .connect-btn:disabled {
@@ -375,20 +392,6 @@ body:not(.rtl) .main-header {
     margin-inline-start: var(--space-xs);
 }
 
-/* Direct mode button: dim when off, green when on */
-#directModeToggle {
-    background: var(--surface-2);
-    color: var(--text-dim);
-    opacity: 0.6;
-}
-#directModeToggle.active {
-    background: var(--accent-success);
-    color: white;
-    opacity: 1;
-}
-#directModeToggle:hover {
-    opacity: 1;
-}
 
 /* Dashboard Grid */
 .dashboard-grid {
@@ -1499,6 +1502,10 @@ body.rtl .action-btn,
 body.rtl .icon-action,
 body.rtl .save-btn,
 body.rtl .connect-btn,
+body.rtl .custom-select-trigger,
+body.rtl .add-url-row-btn,
+body.rtl .primary-btn,
+body.rtl .input-log::placeholder,
 body.rtl .text-btn {
     font-family: 'Vazirmatn', var(--font-sans);
 }
@@ -1551,4 +1558,20 @@ body.rtl .text-btn {
     .tool-item .action-btn {
         align-self: flex-end;
     }
+}
+
+.dir-ltr {
+    direction: ltr;
+}
+
+.text-danger {
+    color: var(--accent-error) !important;
+}
+
+.text-warning {
+    color: var(--accent-warning) !important;
+}
+
+.text-success {
+    color: var(--accent-success) !important;
 }

@@ -17,18 +17,19 @@ function doPost(e) {
     if (req.k !== AUTH_KEY) {
       return json_({ e: "unauthorized" });
     }
+    const compress = !!req.gz;
     if (Array.isArray(req.q)) {
-      return doBatch_(req.q);
+      return doBatch_(req.q, compress);
     }
-    return doSingle_(req);
+    return doSingle_(req, compress);
   } catch (err) {
     return json_({ e: String(err) });
   }
 }
 
-function doSingle_(req) {
+function doSingle_(req, compress) {
   if (!isValidRelayRequest_(req)) {
-    return json_({ e: "bad url" });
+    return json_({ e: "bad url" }, compress);
   }
 
   const resp = UrlFetchApp.fetch(EXIT_RELAY_URL, {
@@ -41,13 +42,13 @@ function doSingle_(req) {
   });
 
   try {
-    return json_(JSON.parse(resp.getContentText()));
+    return json_(JSON.parse(resp.getContentText()), compress);
   } catch (err) {
-    return json_({ e: "invalid worker response", raw: resp.getContentText() });
+    return json_({ e: "invalid worker response", raw: resp.getContentText() }, compress);
   }
 }
 
-function doBatch_(items) {
+function doBatch_(items, compress) {
   const fetches = [];
   const errors = {};
 
@@ -89,7 +90,7 @@ function doBatch_(items) {
     }
   }
 
-  return json_({ q: results });
+  return json_({ q: results }, compress);
 }
 
 function exitRelayHeaders_() {
@@ -127,8 +128,21 @@ function doGet() {
   return HtmlService.createHtmlOutput("Relay Active");
 }
 
-function json_(obj) {
+function json_(obj, compress) {
+  const text = JSON.stringify(obj);
+  if (compress) {
+    try {
+      const blob = Utilities.newBlob(text, 'application/json');
+      const gz = Utilities.gzip(blob);
+      const b64 = Utilities.base64Encode(gz.getBytes());
+      return ContentService
+        .createTextOutput(JSON.stringify({ z: b64 }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (_) {
+      // fall through to uncompressed
+    }
+  }
   return ContentService
-    .createTextOutput(JSON.stringify(obj))
+    .createTextOutput(text)
     .setMimeType(ContentService.MimeType.JSON);
 }

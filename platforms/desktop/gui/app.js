@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'button.export': 'Export',
             'tool.ping': 'Ping',
             'tool.pingDesc': 'Measure relay round-trip time',
+            'tool.pingDescDirect': 'Measure direct connection latency',
             'button.ping': 'Ping',
             'tool.security': 'Certificate',
             'tool.securityDesc': 'Create the local CA file',
@@ -110,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'button.export': 'خروجی',
             'tool.ping': 'پینگ',
             'tool.pingDesc': 'اندازه‌گیری زمان رفت‌وبرگشت رله',
+            'tool.pingDescDirect': 'اندازه‌گیری تأخیر اتصال مستقیم',
             'button.ping': 'پینگ',
             'tool.security': 'گواهینامه',
             'tool.securityDesc': 'ساخت فایل CA محلی',
@@ -411,6 +413,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             profileSelect.value = '';
         }
+        if (profileSelect.value === '__direct__') {
+            setUrlRows('');
+            const keyEl = document.getElementById('auth-key');
+            if (keyEl) keyEl.value = '';
+        }
         validateInputs();
     }
 
@@ -703,15 +710,33 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     pingBtn.addEventListener('click', async () => {
+        const PING_QUALITY = [
+            { max: 199, class: 'text-success', name: 'GOOD' },
+            { max: 949, class: 'text-warning', name: 'MEDIUM' },
+            { max: Infinity, class: 'text-danger', name: 'BAD' }
+        ];
+        const getPingQuality = (ms) => PING_QUALITY.find(range => ms <= range.max);
+        const updatePingUI = (ms = null) => {
+            pingResult.classList.remove('text-success', 'text-warning', 'text-danger');
+            if (ms !== null) pingResult.classList.add(getPingQuality(ms).class);
+        };
+
         pingResult.textContent = '…';
+        pingResult.classList.remove('text-success', 'text-warning', 'text-danger');
         setButtonDisabled(pingBtn, true);
         try {
-            const res = await fetch('/api/ping', { method: 'POST' });
+            const isDirect = profileSelect.value === '__direct__';
+            const res = await fetch('/api/ping', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ direct: isDirect })
+            });
             const data = await res.json();
             if (data.ok) {
                 pingResult.textContent = `${data.ms} ms`;
                 showLog(`Ping: ${data.ms} ms`, 'info');
                 playMotion(pingBtn, 'motion-confirm');
+                updatePingUI(data.ms);
             } else {
                 pingResult.textContent = 'failed';
                 showLog(`Ping failed: ${data.error}`, 'error');
@@ -1070,7 +1095,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         setButtonDisabled(toggleProxyBtn, isActivating || (!isRunning && !hasRunnableConfig));
 
-        // These actions require a relay config (Apps Script URL + key), not just direct mode.
+        // These actions require a relay config — hide entirely in direct mode
+        const isDirectMode = profileSelect.value === '__direct__';
+        if (pingResult && !pingResult.classList.contains('text-success') &&
+            !pingResult.classList.contains('text-warning') &&
+            !pingResult.classList.contains('text-danger')) {
+            pingResult.textContent = isDirectMode ? t('tool.pingDescDirect') : t('tool.pingDesc');
+        }
+        const relayToolEls = ['relayToolDiagnostics', 'relayToolAndroid'];
+        relayToolEls.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = isDirectMode ? 'none' : '';
+        });
         if (runProbesBtn) setButtonDisabled(runProbesBtn, !hasRelay || window.__ZYRLN_STATE__.probesRunning);
         if (exportMobileBtn) setButtonDisabled(exportMobileBtn, !hasRelay || isActivating);
 
@@ -1111,6 +1147,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     profileSelect.addEventListener('change', () => {
         if (window.__ZYRLN_STATE__.activating) return;
+        pingResult.textContent = pingResult.dataset.i18n ? t(pingResult.dataset.i18n) : '—';
+        pingResult.classList.remove('text-success', 'text-warning', 'text-danger');
         validateInputs();
         playMotion(profileSelectWrapper, 'motion-select');
         if (profileSelect.value === '__direct__') {
