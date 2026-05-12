@@ -33,17 +33,6 @@
 **برای بقیه سایت‌ها (اینستاگرام، توییتر و...):**
 ترافیک از طریق Google Apps Script هدایت می‌شود — یک سرویس رایگان گوگل. از نظر سیستم فیلترینگ، این ترافیک عادی گوگل به نظر می‌رسد. Apps Script آن را به رله خروجی شما (VPS یا Cloudflare) می‌فرستد که سایت واقعی را باز می‌کند.
 
-<div dir="ltr">
-
-```
-یوتیوب/گوگل:    دستگاه شما ──[TLS تقسیم‌شده]──▶ گوگل (مستقیم، سرعت کامل)
-
-بقیه سایت‌ها:   دستگاه شما ──▶ Apps Script (گوگل) ──▶ VPS شما ──▶ سایت مقصد
-                               از نظر فیلترینگ ترافیک گوگل است ↑
-```
-
-</div>
-
 ---
 
 ## فقط می‌خوام یوتیوب و گوگل باز بشه
@@ -55,9 +44,9 @@
 3. روی دکمه **⚡ برق** در نوار بالا کلیک کن تا حالت مستقیم فعال شود (سبز می‌شود)
 4. در مرورگرت پروکسی HTTP را روی `127.0.0.1:8085` تنظیم کن
 
-همین. یوتیوب، جیمیل، گوگل درایو، گوگل میت و تمام سرویس‌های گوگل با سرعت کامل باز می‌شوند.
+همین. بسیاری از سرویس‌های گوگل می‌توانند وقتی مسیر شبکه اجازه بدهد از مسیر مستقیم و سریع‌تر استفاده کنند.
 
-> این روش کار می‌کند چون ایران گوگل را فقط بر اساس SNI فیلتر می‌کند — نمی‌توانند آی‌پی‌های گوگل را کلاً بلاک کنند چون نیمی از اینترنت ایران از بین می‌رود. زیرلن دست‌دهی TLS را به قطعاتی تقسیم می‌کند که SNI هرگز برای سیستم فیلترینگ قابل خواندن نیست.
+> حالت مستقیم برای مسیرهای فیلترینگ مبتنی بر SNI روی سرویس‌های گوگل طراحی شده است. زیرلن دست‌دهی TLS را قطعه‌قطعه می‌کند تا بعضی مسیرهای DPI نتوانند نام سرویس گوگل را به‌موقع بخوانند. رفتار فیلترینگ بسته به ISP، شهر، اپراتور و زمان تغییر می‌کند.
 
 ---
 
@@ -76,12 +65,24 @@
 
 ### مرحله ۱ — ساخت کلید امنیتی
 
-یک بار این دستور را اجرا کن. خروجی را جایی ذخیره کن — در هر مرحله به آن نیاز داری.
+یک بار این دستور را با باینری مخصوص سیستم‌عاملت اجرا کن. خروجی را جایی ذخیره کن — در هر مرحله به آن نیاز داری.
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
+
+```powershell
+# Windows
+.\zyrln-VERSION-windows-amd64.exe -gen-key
+```
 
 ```bash
-zyrln -gen-key
+# Linux
+./zyrln-VERSION-linux-amd64 -gen-key
+
+# macOS Apple Silicon
+./zyrln-VERSION-darwin-arm64 -gen-key
+
+# macOS Intel
+./zyrln-VERSION-darwin-amd64 -gen-key
 ```
 
 </div>
@@ -96,7 +97,7 @@ zyrln -gen-key
 2. کد پیش‌فرض را پاک کن و محتوای فایل [`relay/apps-script/Code.gs`](relay/apps-script/Code.gs) را جای‌گذاری کن
 3. سه خط اول را ویرایش کن:
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```js
 const AUTH_KEY       = "کلید-مرحله-۱";
@@ -127,7 +128,7 @@ const EXIT_RELAY_KEY = "";
    `https://worker-name.subdomain.workers.dev`
 4. برگرد به Apps Script و `EXIT_RELAY_URL` را آپدیت کن:
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```js
 const EXIT_RELAY_URL = "https://worker-name.subdomain.workers.dev/relay";
@@ -143,7 +144,7 @@ const EXIT_RELAY_URL = "https://worker-name.subdomain.workers.dev/relay";
 
 خلاصه — روی VPS:
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```bash
 # بیلد و کپی روی سرور
@@ -200,7 +201,7 @@ ufw allow 8787/tcp
 
 نیاز به Go نسخه ۱.۲۵ به بالا دارد.
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```bash
 # باینری دسکتاپ
@@ -228,6 +229,8 @@ make test
 ```
 
 </div>
+
+`make desktop` یک باینری محلی `./zyrln` برای همین سیستم می‌سازد. `make desktop-release` باینری‌های مخصوص هر پلتفرم را داخل `dist/` می‌سازد.
 
 ---
 

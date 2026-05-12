@@ -12,7 +12,7 @@ VPS گره خروجی است — سایت‌های واقعی را از طرف A
 
 روی ماشین محلی:
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```bash
 # برای amd64 (اکثر VPS‌ها)
@@ -26,7 +26,7 @@ GOOS=linux GOARCH=arm64 go build -o zyrln-relay ./relay/vps/main.go
 
 انتقال به سرور:
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```bash
 scp zyrln-relay root@IP_VPS_شما:/usr/local/bin/
@@ -38,7 +38,7 @@ scp zyrln-relay root@IP_VPS_شما:/usr/local/bin/
 
 فایل `/etc/zyrln-relay.env` را بساز:
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```
 ZYRLN_RELAY_LISTEN=0.0.0.0:8787
@@ -51,7 +51,7 @@ ZYRLN_RELAY_KEY=
 
 فایل `/etc/systemd/system/zyrln-relay.service` را بساز:
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```ini
 [Unit]
@@ -74,7 +74,7 @@ WantedBy=multi-user.target
 
 فعال‌سازی و اجرا:
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```bash
 systemctl daemon-reload
@@ -86,7 +86,7 @@ systemctl status zyrln-relay   # باید "active (running)" نشان بدهد
 
 ## باز کردن فایروال
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```bash
 ufw allow 8787/tcp
@@ -98,7 +98,7 @@ ufw allow 8787/tcp
 
 ## تست
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```bash
 curl -s -X POST http://IP_VPS_شما:8787/relay \

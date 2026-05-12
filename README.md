@@ -34,13 +34,6 @@ Traffic is sent directly to Google but with the TLS handshake split into tiny fr
 **For everything else (Instagram, Twitter, etc.):**
 Traffic is routed through Google Apps Script — a free Google service. From the censor's perspective it looks like normal Google traffic. Apps Script then forwards it to an exit relay (your VPS or Cloudflare) which fetches the real site.
 
-```
-YouTube/Google:   your device ──[fragmented TLS]──▶ Google (direct, full speed)
-
-Everything else:  your device ──▶ Apps Script (Google) ──▶ your VPS ──▶ target site
-                                   looks like Google traffic ↑
-```
-
 ---
 
 ## I just want YouTube and Google
@@ -52,9 +45,9 @@ Everything else:  your device ──▶ Apps Script (Google) ──▶ your VPS 
 3. Click the **⚡ lightning bolt** button in the top bar to enable Direct Mode
 4. Set your browser to use HTTP proxy `127.0.0.1:8085`
 
-That's it. YouTube, Gmail, Google Drive, Google Meet, and all Google services will work at full speed.
+That's it. Many Google services can use the faster direct path when the local network allows it.
 
-> Direct Mode works because Iran only blocks Google by SNI — they can't block the IPs without breaking half the Iranian internet. Zyrln fragments the TLS handshake so the SNI is never visible to the censor.
+> Direct Mode targets SNI-based filtering on Google services. Zyrln fragments the TLS handshake so basic DPI paths may fail to read the requested Google hostname in time. Filtering varies by ISP, city, carrier, and time.
 
 ---
 
@@ -73,10 +66,22 @@ To access Instagram, Twitter, Telegram, and other non-Google sites, you need to 
 
 ### Step 1 — Generate an auth key
 
-Run this once on any computer. Save the output — you'll use it in every step.
+Run this once on any computer using the desktop binary for your OS. Save the output — you'll use it in every step.
+
+```powershell
+# Windows
+.\zyrln-VERSION-windows-amd64.exe -gen-key
+```
 
 ```bash
-zyrln -gen-key
+# Linux
+./zyrln-VERSION-linux-amd64 -gen-key
+
+# macOS Apple Silicon
+./zyrln-VERSION-darwin-arm64 -gen-key
+
+# macOS Intel
+./zyrln-VERSION-darwin-amd64 -gen-key
 ```
 
 Example output: `swrkwbMS1X666fjzReip+PbodKcPyDK7Xbk5gRSgRUE=`
@@ -201,6 +206,8 @@ make proxy
 # Run tests
 make test
 ```
+
+`make desktop` builds a local `./zyrln` binary for your current machine. `make desktop-release` writes platform-specific binaries into `dist/` using the release names shown above.
 
 ---
 

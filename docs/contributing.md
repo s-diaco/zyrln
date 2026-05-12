@@ -67,10 +67,12 @@ Tests use only the standard library, no external test frameworks.
 ## Building
 
 ```bash
-make desktop          # build ./zyrln CLI binary
-make desktop-release  # build Linux, Windows, and macOS desktop binaries
+make desktop          # build local ./zyrln CLI binary for this machine
+make desktop-release  # build release binaries in dist/ for Linux, Windows, and macOS
 make android          # build signed release APK (requires keystore)
 ```
+
+Desktop release binaries use platform-specific names such as `zyrln-VERSION-linux-amd64`, `zyrln-VERSION-windows-amd64.exe`, `zyrln-VERSION-darwin-arm64`, and `zyrln-VERSION-darwin-amd64`.
 
 First-time gomobile setup:
 

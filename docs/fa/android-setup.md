@@ -28,7 +28,7 @@ APK را از صفحه [Releases](../../../releases) دانلود کن و روی
 
 **اگر برنامه دسکتاپ نداری**، JSON را دستی بساز:
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```json
 {"url":"https://script.google.com/macros/s/ID_شما/exec","key":"کلید_امنیتی"}
@@ -38,7 +38,7 @@ APK را از صفحه [Releases](../../../releases) دانلود کن و روی
 
 برای چند آدرس Apps Script (پایداری بهتر):
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```json
 {"url":"https://script.google.com/.../exec1,https://script.google.com/.../exec2","key":"کلید_امنیتی"}
@@ -83,7 +83,7 @@ APK را از صفحه [Releases](../../../releases) دانلود کن و روی
 
 نیاز به Android Studio با NDK دارد.
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```bash
 # نصب gomobile (یک بار)

@@ -2,7 +2,7 @@
 
 ## ساختار پروژه
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```
 zyrln/
@@ -54,7 +54,7 @@ zyrln/
 
 ## اجرای تست‌ها
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```bash
 go test ./relay/core/... ./platforms/desktop/...
@@ -64,7 +64,7 @@ go test ./relay/core/... ./platforms/desktop/...
 
 یا همه چیز با هم:
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```bash
 go test ./...
@@ -76,19 +76,21 @@ go test ./...
 
 ## ساخت
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```bash
-make desktop          # ساخت باینری ./zyrln
-make desktop-release  # ساخت باینری‌های دسکتاپ لینوکس، ویندوز و مک
+make desktop          # ساخت باینری محلی ./zyrln برای همین سیستم
+make desktop-release  # ساخت باینری‌های انتشار در dist/ برای لینوکس، ویندوز و مک
 make android          # ساخت APK نهایی امضاشده (نیاز به keystore)
 ```
 
 </div>
 
+نام باینری‌های انتشار بر اساس پلتفرم است: `zyrln-VERSION-linux-amd64`، `zyrln-VERSION-windows-amd64.exe`، `zyrln-VERSION-darwin-arm64` و `zyrln-VERSION-darwin-amd64`.
+
 راه‌اندازی اول gomobile:
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```bash
 go install golang.org/x/mobile/cmd/gomobile@latest
@@ -102,7 +104,7 @@ export ANDROID_HOME=~/Android/Sdk
 
 Probe‌ها در `platforms/desktop/main.go` در تابع `defaultProbes()` تعریف می‌شوند. هر probe یک struct `probe` است:
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```go
 {

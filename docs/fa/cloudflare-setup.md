@@ -15,7 +15,7 @@
 
 در `relay/apps-script/Code.gs` مقدار `EXIT_RELAY_URL` را به آدرس Worker تنظیم کن:
 
-<div dir="ltr">
+<div dir="ltr" align="left" style="direction: ltr; text-align: left;">
 
 ```js
 const EXIT_RELAY_URL = "https://worker-name.subdomain.workers.dev/relay";

@@ -49,4 +49,6 @@ docs/node_modules/
 docs/.vitepress/cache/
 config.env.profiles.json
 zyrln-*
+!zyrln-logo.png
+!platforms/desktop/gui/zyrln-icon.png
 coverage.out
