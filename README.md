@@ -29,7 +29,7 @@ Bypass internet censorship in Iran. Routes your traffic through Google's infrast
 Iran's censorship system (SNDPI) blocks sites by inspecting traffic. Zyrln defeats it two ways:
 
 **For Google services (YouTube, Gmail, Drive, etc.):**
-Traffic is sent directly to Google but with the TLS handshake split into tiny fragments. The censor's system can't reassemble them fast enough to read the SNI, so it lets the connection through. No server needed.
+Traffic is sent directly to Google but with the TLS handshake split into tiny fragments. The censor's system can't reassemble them fast enough to read the SNI in time, so the connection is allowed through. No server needed.
 
 **For everything else (Instagram, Twitter, etc.):**
 Traffic is routed through Google Apps Script — a free Google service. From the censor's perspective it looks like normal Google traffic. Apps Script then forwards it to an exit relay (your VPS or Cloudflare) which fetches the real site.
